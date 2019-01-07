@@ -35,7 +35,7 @@ ggplot(data = subWaterQ.df, aes(x = date, y = obs, col = ID)) + geom_point() + g
 
 # Move on
 
-df = SPTMData(df.obs = subWaterQ.df, tempBasis = "bs", tempPeriod = c("%m", "%Y"), nSplines = c(12,5))
+df = SPTMData(df.obs = subWaterQ.df, tempBasis = "bs", tempPeriod = c("%m", "%Y"), nSplines = c(13,16))
 CLR = clr(subLandUse.df)
 
 SpTcov = cbind(CLR[match(df$obs.data$ID,rownames(subLandUse.df)),-9])
@@ -62,8 +62,8 @@ df.sptmod = SPTModel(df.sptm = df, coordinates = subCoords.df, SpTcov = NULL)
 pi0 = as.matrix(subLandUse.df) 
 pi0 = pi0#[,-c(4:6)]/ rowSums(pi0[,-c(4:6)])
 set.seed(1)
-ResGibbsM = estimGibbs(df.sptmod, priors = list(beta = list(m0 = 1, s0 = 0.1, dist = "gauss", constrained =T),
-                                           alpha = list(m0 = 0, s0 = 2, dist = "gauss", constrained = T),
+ResGibbsM = estimGibbs(df.sptmod, priors = list(beta = list(m0 = 1, s0 = 0.1, dist = "gauss", constrained = T),
+                                           alpha = list(m0 = 0, s0 = 2, dist = "gauss", constrained = F),
                                            gamma = list(m0 = 0, s0 = 0.1, dist = "gauss"),
                                            sigma2 = list(a0=2, b0=1, dist = "igamma"),
                                            tau = list(a0 = 5, b0= 1, dist = "igamma"),
@@ -73,7 +73,7 @@ ResGibbsM = estimGibbs(df.sptmod, priors = list(beta = list(m0 = 1, s0 = 0.1, di
                                            pi = list(alpha0 = pi0, dist = "dirichlet"),
                                            rho=list(inf=2, sup = 3, dist="unif")),
                   N.run = 2500, debug = F, tempRE = "notcorr", model = "simpleMixture",
-                  print.res = T, nBatch = 3,
+                  print.res = T, nBatch = 2,
                   parallel = F, nCluster = ncol(pi0))
 
 saveRDS(object = ResGibbsM, file = "data/rds/Mixture_results_15000runs_3batches.rds")

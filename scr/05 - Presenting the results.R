@@ -78,6 +78,7 @@ predData$CI025 = apply(ResGibbs$GibbsOut$yHat[-1,,1],2,quantile,0.025)
 predData$CI975 = apply(ResGibbs$GibbsOut$yHat[-1,,1],2,quantile,0.975)
 
 ggplot(data = predData, aes(x = date, y = obs, col = ID)) + geom_point(size=0.5) + #geom_line(size = 0.5) + 
+  geom_segment(aes(x = date, xend = date, y = yP, yend = obs))+
   geom_line(aes(x = date, y = yP, group = ID), col = "black") + facet_wrap(~ID, scales = "free_x") + 
   geom_ribbon(aes(ymin = CI025, ymax = CI975), fill = "grey70", col = "grey70", alpha = 0.2)
 
@@ -86,38 +87,69 @@ SSE_S = sqrt(sum((predData$obs - predData$yP)^2))
 # Results Mixture
 
 nRun = nrow(ResGibbsM$GibbsOut$theta$rhoH)
-plotSPTM(ResGibbsM, "tempBasis", keepRun = round(3*nRun/4):nRun)
+Cldf = data.frame(ID = rownames(pi0),Cluster = apply(t(apply(ResGibbsM$GibbsOut$theta$zH[round(3*nRun/5):nRun,,,1],c(2,3),mean)),1,which.max))
+idxKeep = which(colSums(apply(ResGibbsM$GibbsOut$theta$zH[,,,1], 1, function(x) apply(x, 2,which.max) - Cldf$Cluster))==0)
+idxKeep = idxKeep[idxKeep > 3.*nRun/5]
+
+plotSPTM(ResGibbsM, "tempBasis", keepRun = idxKeep)
 plotSPTM(ResGibbsM, "spatialBasis")
 plotSPTM(ResGibbsM, "alpha")
 plotSPTM(ResGibbsM, "beta")
-plotSPTM(ResGibbsM, "hyperparameter", keepRun = round(4*nRun/5):nRun)
+plotSPTM(ResGibbsM, "hyperparameter", keepRun = idxKeep)
 plotSPTM(ResGibbsM, "residuals")
-plotSPTM(ResGibbsM, "covariates", keepRun = round(4*nRun/5):nRun)
-plotSPTM(ResGibbsM, "cluster", keepRun =round(4*nRun/5):nRun)
+plotSPTM(ResGibbsM, "covariates", keepRun = idxKeep)
+plotSPTM(ResGibbsM, "cluster", keepRun =idxKeep)
 plotSPTM(ResGibbsM, "map")
 
-
-round(apply(ResGibbsM$GibbsOut$theta$zH[round(4*nRun/5):nRun,,,1],c(2,3),mean),2)
-round(apply(ResGibbsM$GibbsOut$theta$piH[round(4*nRun/5):nRun,,,1],c(2,3),mean),2)
+# Identify the MCMC samples for which the component allocation corresponds to the most likely one:
 
 predData = df$obs.data
-predData$yP =  colMeans(ResGibbsM$GibbsOut$yHat[-1,,1])
-predData$CI025 = apply(ResGibbsM$GibbsOut$yHat[-1,,1],2,quantile,0.025)
-predData$CI975 = apply(ResGibbsM$GibbsOut$yHat[-1,,1],2,quantile,0.975)
-predData$yPp =  colMeans(predictSPTM(ResGibbsM, keepRun = 1500:2500)$YpwN)
-Cldf = data.frame(ID = rownames(pi0),Cluster = apply(t(apply(ResGibbsM$GibbsOut$theta$zH[1500:2500,,,1],c(2,3),mean)),1,which.max))
-
+predData$yP =  colMeans(ResGibbsM$GibbsOut$yHat[idxKeep,,1])
+predData$CI025 = apply(ResGibbsM$GibbsOut$yHat[idxKeep,,1],2,quantile,0.025)
+predData$CI975 = apply(ResGibbsM$GibbsOut$yHat[idxKeep,,1],2,quantile,0.975)
+predPost = predictSPTM(ResGibbsM, keepRun = idxKeep, posterior = F)
+predData$yPp =  predPost$YpwN
+predData$CI025p = predPost$CI025
+predData$CI975p = predPost$CI975
 predData = merge(predData, Cldf, by  ="ID", all.x = TRUE)
 
 SSE_M = sqrt(sum((predData$obs - predData$yP)^2))
 
-ggplot(data = predData[predData$Cluster %in% c(1:7),], aes(x = date, y = obs, col = ID)) + geom_point() + geom_line() + 
+ggplot(data = predData[predData$Cluster %in% 8,], aes(x = date, y = obs, col = ID)) + geom_point(size=0.5) +
+  geom_segment(aes(x = date, xend = date, y = yP, yend = obs))+
   geom_line(aes(x = date, y = yP, group = ID), col = "black") + 
-#  geom_line(aes(x = date, y = yPp, group = ID), col = "red") +
+  geom_line(aes(x = date, y = yPp, group = ID), col = "blue") + 
   facet_wrap(Cluster~ID, scales = "free") + 
-  geom_ribbon(aes(ymin = CI025, ymax = CI975), fill = "grey70", col = "grey70", alpha = 0.2)
+  geom_ribbon(aes(ymin = CI025, ymax = CI975), fill = "grey70", col = "grey70", alpha = 0.2)+
+  geom_ribbon(aes(ymin = CI025p, ymax = CI975p), fill = "cyan", col = NA, alpha = 0.2)
 
+
+nid = "A5030509"
+tPred = seq(min(df$obs.data$date), max(df$obs.data$date), by = 'week')
+newData = list(ID = rep(as.factor(nid),length(tPred)), 
+              time = tPred, 
+              loc = subCoords.df[which(subCoords.df$site == nid), 2:3], 
+              cov = 1)
+
+rownames(newData$loc) <- nid
+
+ttPred = predictSPTM(ResGibbsM, keepRun = idxKeep, newdata = newData)
 # Results Spatial Mixture
+
+testPred = data.frame(yP = ttPred$Yp, 
+                      yPp = ttPred$YpwN,
+                      date = newData$time, 
+                      CI025 = ttPred$CI025, 
+                      CI975 = ttPred$CI975)
+
+ggplot(data = predData[predData$Cluster %in% 9,], aes(x = date, y = obs, col = ID)) + 
+  geom_segment(aes(x = date, xend = date, y = yP, yend = obs))+
+  geom_line(aes(x = date, y = yP, group = ID), col = "black") + 
+  geom_line(data = testPred, aes(x = date, y = yP), col = "blue") +
+  facet_wrap(Cluster~ID, scales = "free")+
+  geom_ribbon(data = testPred, aes(x = date, y = yP, ymin = CI025, ymax = CI975), fill = "cyan", col = NA,alpha = 0.2) +
+  geom_point(size=0.5)
+  
 
 nRun = nrow(ResGibbsM$GibbsOut$theta$rhoH)
 plotSPTM(ResGibbsMS, "tempBasis")
@@ -144,7 +176,6 @@ ggplot(data = predData[predData$Cluster %in% c(1:9),], aes(x = date, y = obs, co
 #  geom_line() + 
   geom_line(aes(x = date, y = yP, group = ID), col = "black") + 
   geom_segment(aes(x = date, xend = date, y = yP, yend = obs))+
-  #  geom_line(aes(x = date, y = yPp, group = ID), col = "red") +
   facet_wrap(Cluster~ID, scales = "free") + 
   geom_ribbon(aes(ymin = CI025, ymax = CI975), fill = "grey70", col = "grey70", alpha = 0.2)
 

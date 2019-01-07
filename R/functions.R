@@ -888,6 +888,9 @@
             idxNN = which(rowSums(zCurr)>0)
             
             Ab = kronecker(zCurr[idxNN,], diag(nBasis))
+            if(nComp == 1){
+              Ab = kronecker(zCurr, diag(nBasis))
+            }
             betaMu = muBeta0
             nConst = nrow(Ab)
             sigBetaC = SigmaBT - SigmaBT %*% t(Ab) %*% solve((Ab) %*% SigmaBT %*% t(Ab)) %*% (Ab) %*% SigmaBT
@@ -1685,7 +1688,7 @@ function(SPTMresobj, transform = "none", posterior = F, newdata = NULL, keepRun 
     
     ID = SPTMresobj$GibbsOut$ID
     cov = SPTMresobj$GibbsOut$cov
-    coords = SPTMresobj$GibbsOut$coords[match(SPTMresobj$GibbsOut$coords$site, ID),]
+    coords = SPTMresobj$GibbsOut$coords[match(ID, SPTMresobj$GibbsOut$coords$site),]
     SpTcov = SPTMresobj$GibbsOut$sptcov
     
     tempBasis = SPTMresobj$GibbsOut$basis$tempBasis
@@ -1714,8 +1717,6 @@ function(SPTMresobj, transform = "none", posterior = F, newdata = NULL, keepRun 
       if(posterior){
         
         YpredH = colMeans(yHat[keepRun,,1])
-        YpredH025 = apply(yHat[keepRun,,1],2,quantile, 0.025) + qnorm(0.025,0,mean(sigma2H[keepRun,,1]))
-        YpredH975 = apply(yHat[keepRun,,1],2,quantile, 0.975) + qnorm(0.975,0,mean(sigma2H[keepRun,,1]))
         YpredHN = matrix(NA, nrow = length(keepRun), ncol = nObs)
 
         for(tt in 1:length(keepRun)){
@@ -1742,30 +1743,18 @@ function(SPTMresobj, transform = "none", posterior = F, newdata = NULL, keepRun 
           YpredHN[tt,] = yHat
           
         }
+        
+        YpredHN = YpredHN + rnorm(length(keepRun)*nObs, 0, mean(sigma2H[keepRun,,1]))
+        
+        YpredH025 = apply(YpredHN,2,quantile, 0.025)
+        YpredH975 = apply(YpredHN,2,quantile, 0.975)
+        
       }else{
         
         YpredH = colMeans(yHat[keepRun,,1])
-        YpredH025 = apply(yHat[keepRun,,1],2,quantile, 0.025) + qnorm(0.025,0,mean(sigma2H[keepRun,,1]))
-        YpredH975 = apply(yHat[keepRun,,1],2,quantile, 0.975) + qnorm(0.975,0,mean(sigma2H[keepRun,,1]))
-        for(si in 1:nSites){
-          idxC = ((si-1)*nBasis+1):(si*nBasis)
-          xt = NULL
-          for(jj in 1:(nBasis)){
-            #browser()
-            if(dim(alphaH)[3]>1){fTime = as.matrix(basisSplines[,basis$idx[[jj]]]) %*% colMeans(alphaH[keepRun,basis$idx[[jj]], which.max(apply(zH[keepRun,,si,1],2,mean)),1])}
-            if(dim(alphaH)[3]==1){
-              fTime = as.matrix(basisSplines[,basis$idx[[jj]]]) %*% colMeans(alphaH[keepRun,basis$idx[[jj]],1,1])
-            }
-            xt = cbind(xt,fTime * cov)
-          }
-          Xtilde[which(y$ID == ID[si]),idxC] = xt[which(y$ID == ID[si]),]
-        }
-        #browser()
-        if(dim(alphaH)[3]>1){SpTcov = t((apply(zH[keepRun,,,1],2:3, mean)[,match(y$ID,ID)]))}
-        
-        Yp = crossprod_simple_triplet_matrix(t(Xtilde), colMeans(betaH[keepRun,,1])) + SpTcov %*% colMeans(gammaH[keepRun,,1])
-        yHat = Yp + Iter %*% colMeans(betaIH[keepRun,,1])
-        YpredHN = yHat
+        YpredH025 = apply(yHat[keepRun,,1] + rnorm(length(keepRun)*nObs, 0, mean(sigma2H[keepRun,,1])),2,quantile, 0.025)
+        YpredH975 = apply(yHat[keepRun,,1] + rnorm(length(keepRun)*nObs, 0, mean(sigma2H[keepRun,,1])),2,quantile, 0.975)
+        YpredHN =  colMeans(yHat[keepRun,,1]+ rnorm(length(keepRun)*nObs, 0, mean(sigma2H[keepRun,,1])))
       }
       
       
@@ -1773,26 +1762,45 @@ function(SPTMresobj, transform = "none", posterior = F, newdata = NULL, keepRun 
       
       newLoc = newdata$loc
       newTime = newdata$time
-      newCov = as.matrix(newdata$cov)
+      newCov = newdata$cov
       newID = newdata$ID
       
       nNewSites = nrow(newLoc)
       
-      YpredH = matrix(NA, nrow = Nrun, ncol = length(newTime))
-      YpredHN = matrix(NA, nrow = Nrun, ncol = length(newTime))
-      
-      newsplines = NULL
-      for(i in 1:nBasis){
-        BbaseT = as.numeric(unique(format(SPTMresobj$GibbsOut$y$date, tempPeriod[i])))
-        BbaseTr = seq(min(BbaseT), max(BbaseT), by = 1)
-        if(tempBasis == "bs"){
-          BBT = bs(format(SPTMresobj$GibbsOut$y$date, tempPeriod[i]),df = length(BbaseTr))
-          nS = predict(BBT, as.numeric(format(newTime, tempPeriod[i])))}
-        if(tempBasis == "re"){
-          nS = sapply(BbaseTr, function(x) as.numeric(as.numeric(format(newTime,tempPeriod[i])) == x))
+      newZ = NULL
+      for(nID in unique(newID)){
+        if(nID %in% SPTMresobj$GibbsOut$ID){
+          newZ = c(newZ, apply(apply(zH[keepRun,,,1], 2:3, mean),2,which.max)[match(nID, SPTMresobj$GibbsOut$ID)])
         }
-        newsplines = cbind(newsplines,nS)
       }
+      YppredH = matrix(NA, nrow = length(keepRun), ncol = length(newTime))
+      YppredHN = matrix(NA, nrow = length(keepRun), ncol = length(newTime))
+      
+      Xtilde = simple_triplet_zero_matrix(nrow = length(newTime), ncol = nNewSites*nCov*nBasis)
+      newBB = NULL
+      j=0
+      for(i in tempPeriod){
+        j = j +1 
+        if(tempBasis == "bs"){
+          if(j == 1){
+            tTemp = as.Date(paste("2014-",format(newTime,"%m-%d"), sep = ""))
+            nBBT = predict(basis$splines[[j]], tTemp)
+          }
+          if(j == 2){
+            nBBT = predict(basis$splines[[j]], newTime)
+            }
+          if(j == 3){
+            nBBT = matrix(rep(1, length(newTime)), ncol=1)
+          }
+        }
+        if(tempBasis == "re"){
+          nBBT = sapply(BbaseTr, function(x) as.numeric(as.numeric(format(t,i)) == x))
+        }
+        
+        newBB = c(newBB,list(nBBT))
+      }
+      
+      newsplines = do.call(cbind,newBB)
       
       Btilde = matrix(0, nrow = length(newTime), ncol = ncol(alphaH))
       
@@ -1802,40 +1810,70 @@ function(SPTMresobj, transform = "none", posterior = F, newdata = NULL, keepRun 
       d12 = as.matrix(dist(rbind(coords[,2:3],newLoc)))[1:nSites,(nSites+1):(nSites + nNewSites)]
       d22 = as.matrix(dist(newLoc))
       
-      newBetaH = matrix(NA,Nrun, ncol =  nBasis*nNewSites)
+      newBetaH = matrix(NA,length(keepRun), ncol =  nBasis*nNewSites)
       
       colnames(newBetaH) <- rep(rownames(newLoc), each = nBasis)
-      
-      for(t in 1:Nrun){
+ 
+      for(tt in 1:length(keepRun)){
         
-        Sig11 = tauH[t] * exp(-phiH[t] * d11)
-        Sig22 = tauH[t] * exp(-phiH[t] * d22)
-        Sig12 = tauH[t] * exp(-phiH[t] * d12)
+        t = keepRun[tt]
+        #if(t == 10){browser()}
+        
+        Sig11 = tauH[t,,1] * exp(-phiH[t,,1] * d11)
+        Sig22 = tauH[t,,1] * exp(-phiH[t,,1] * d22)
+        Sig12 = tauH[t,,1] * exp(-phiH[t,,1] * d12)
         SigP = Sig22 - t(Sig12) %*% solve(Sig11) %*% Sig12
         
-        betaS = matrix(betaH[t,], ncol=nSites, byrow=F)
+        SigP = sapply(SigP, function(x) max(x,0))
+        
+        betaS = matrix(betaH[t,,1], ncol=nSites, byrow=F)
         muP = t(Sig12) %*% solve(Sig11) %*% t(betaS)
         
         SigB = kronecker(diag(nBasis), SigP)
         
-        nBS = t(matrix(mvrnorm(1,c(muP),SigB), nrow = nNewSites))
+        nBS = t(matrix(rmvnorm(1,c(muP),SigB), nrow = nNewSites))
         
-        newBetaH[t,] = nBS
+        newBetaH[tt,] = nBS
         
-        newBetaS = matrix(newBetaH[t,], ncol=nNewSites, byrow=F, dimnames = list(paste0("beta-",1:nBasis), rownames(newLoc)))
-        
-        
+        newBetaS = matrix(newBetaH[tt,], ncol=nNewSites, byrow=F, dimnames = list(paste0("beta-",1:nBasis), rownames(newLoc)))
+
         for(si in 1:nNewSites){
           for(nT in 1:nBasis){
-            Btilde[which(newID == levels(newID)[si]),basis$idx[[nT]]] = newsplines[which(newID == levels(newID)[si]),basis$idx[[nT]]]*(newCov%*%newBetaS[nT,which(colnames(newBetaS)==levels(newID)[si])])[which(newID == levels(newID)[si])]
+            Btilde[which(newID == levels(newID)[si]),basis$idx[[nT]]] = newsplines[which(newID == levels(newID)[si]),basis$idx[[nT]]]*
+              (newCov *
+                 newBetaS[nT,which(colnames(newBetaS)==levels(newID)[si])]
+               )
           }
         }
+
+        YppredH[tt,] = Btilde %*% alphaH[t,,newZ,1] + gammaH[t,newZ,1] + betaIH[t,match(newID, SPTMresobj$GibbsOut$ID),1]
         
-        YpredH[t,] = Btilde %*% alphaH[t,]
-        YpredHN[t,] = Btilde %*% alphaH[t,] + rnorm(length(newTime), 0, sigma2H[t])
+        for(si in 1:nNewSites){
+          idxC = ((si-1)*nBasis+1):(si*nBasis)
+          xt = NULL
+          for(jj in 1:(nBasis)){
+            if(dim(alphaH)[3]>1){fTime = as.matrix(newsplines[,basis$idx[[jj]]]) %*% alphaH[t,basis$idx[[jj]], apply(zH[t,,match(newID[si], SPTMresobj$GibbsOut$ID),1], 1, which.max),1]}
+            if(dim(alphaH)[3]==1){
+              fTime = as.matrix(newsplines[,basis$idx[[jj]]]) %*% alphaH[t,basis$idx[[jj]],1,1]
+            }
+            xt = cbind(xt,fTime * newCov)
+          }
+          Xtilde[which(newID == newID[si]),idxC] = xt[which(newID == newID[si]),]
+        }
         
+        Yp = crossprod_simple_triplet_matrix(t(Xtilde), newBetaH[tt,]) + gammaH[t,newZ,1]
+        yHat = Yp + betaIH[t,match(newID, SPTMresobj$GibbsOut$ID),1]
+        YppredHN[tt,] = yHat + rnorm(length(newTime),0,sigma2H[t,,1])
+       
+        #browser()
+         
+      }
       
-    }
+      YpredH = colMeans(YppredH)
+      YpredH025 = apply(YppredHN,2,quantile, 0.025)
+      YpredH975 = apply(YppredHN,2,quantile, 0.975) 
+      YpredHN = colMeans(YppredHN)
+      
   }
   
   return(list(Yp = YpredH, YpwN = YpredHN, newB = newBetaH, CI025 = YpredH025, CI975 = YpredH975))
