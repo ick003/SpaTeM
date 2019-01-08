@@ -4,7 +4,7 @@ mcmcChain = sptmRes2mcmc(ResGibbs, c(62:68))
 gelman.diag(mcmcChain)
 gelman.plot(mcmcChain)
 
-mcmcChain = sptmRes2mcmc(ResGibbsM)
+mcmcChain = sptmRes2mcmc(ResGibbsM, 329:330)
 gelman.diag(mcmcChain)
 gelman.plot(mcmcChain)
 

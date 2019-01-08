@@ -115,7 +115,7 @@ predData = merge(predData, Cldf, by  ="ID", all.x = TRUE)
 
 SSE_M = sqrt(sum((predData$obs - predData$yP)^2))
 
-ggplot(data = predData[predData$Cluster %in% 8,], aes(x = date, y = obs, col = ID)) + geom_point(size=0.5) +
+ggplot(data = predData[predData$Cluster %in% 7,], aes(x = date, y = obs, col = ID)) + geom_point(size=0.5) +
   geom_segment(aes(x = date, xend = date, y = yP, yend = obs))+
   geom_line(aes(x = date, y = yP, group = ID), col = "black") + 
   geom_line(aes(x = date, y = yPp, group = ID), col = "blue") + 
@@ -124,7 +124,7 @@ ggplot(data = predData[predData$Cluster %in% 8,], aes(x = date, y = obs, col = I
   geom_ribbon(aes(ymin = CI025p, ymax = CI975p), fill = "cyan", col = NA, alpha = 0.2)
 
 
-nid = "A5030509"
+nid = "A5040508"
 tPred = seq(min(df$obs.data$date), max(df$obs.data$date), by = 'week')
 newData = list(ID = rep(as.factor(nid),length(tPred)), 
               time = tPred, 
@@ -142,10 +142,10 @@ testPred = data.frame(yP = ttPred$Yp,
                       CI025 = ttPred$CI025, 
                       CI975 = ttPred$CI975)
 
-ggplot(data = predData[predData$Cluster %in% 9,], aes(x = date, y = obs, col = ID)) + 
+ggplot(data = predData[predData$Cluster %in% 7,], aes(x = date, y = obs, col = ID)) + 
   geom_segment(aes(x = date, xend = date, y = yP, yend = obs))+
   geom_line(aes(x = date, y = yP, group = ID), col = "black") + 
-  geom_line(data = testPred, aes(x = date, y = yP), col = "blue") +
+  geom_line(data = testPred, aes(x = date, y = yPp), col = "blue") +
   facet_wrap(Cluster~ID, scales = "free")+
   geom_ribbon(data = testPred, aes(x = date, y = yP, ymin = CI025, ymax = CI975), fill = "cyan", col = NA,alpha = 0.2) +
   geom_point(size=0.5)

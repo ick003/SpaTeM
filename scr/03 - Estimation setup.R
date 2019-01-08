@@ -21,6 +21,7 @@ library(ggplot2)
 
 load("./data/Rdata/dataNitrogenPost2008.Rdata")
 source("./R/functions.R")
+source("./R/")
 sourceCpp("./src/cpp_functions.cpp")
 # Log or not log
 #[-c(1,2,8,9,10,11,13)]
@@ -35,7 +36,7 @@ ggplot(data = subWaterQ.df, aes(x = date, y = obs, col = ID)) + geom_point() + g
 
 # Move on
 
-df = SPTMData(df.obs = subWaterQ.df, tempBasis = "bs", tempPeriod = c("%m", "%Y"), nSplines = c(13,16))
+df = SPTMData(df.obs = subWaterQ.df, tempBasis = "bs", tempPeriod = c("%m", "%Y"), nSplines = c(13,20))
 CLR = clr(subLandUse.df)
 
 SpTcov = cbind(CLR[match(df$obs.data$ID,rownames(subLandUse.df)),-9])
@@ -72,8 +73,8 @@ ResGibbsM = estimGibbs(df.sptmod, priors = list(beta = list(m0 = 1, s0 = 0.1, di
                                            phiT = list(inf = 0.1, sup = 0.8, dist = "unif"),
                                            pi = list(alpha0 = pi0, dist = "dirichlet"),
                                            rho=list(inf=2, sup = 3, dist="unif")),
-                  N.run = 2500, debug = F, tempRE = "notcorr", model = "simpleMixture",
-                  print.res = T, nBatch = 2,
+                  N.run = 7500, debug = F, tempRE = "notcorr", model = "simpleMixture",
+                  print.res = T, nBatch = 3,
                   parallel = F, nCluster = ncol(pi0))
 
 saveRDS(object = ResGibbsM, file = "data/rds/Mixture_results_15000runs_3batches.rds")
