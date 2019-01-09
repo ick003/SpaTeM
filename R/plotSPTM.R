@@ -179,15 +179,57 @@
           }
           
         }else{
-          for(k in 1:nComp){
+          if(SPTMresobj$GibbsOut$basis$type == "penalized"){
             
+            for(k in 1:nComp){
+              for(i in 1:nBasis){
+                t0 = y$date
+                if(basis$tempPeriod[i] == "%m"){
+                  t0 = as.Date(paste("2014-",format(t0,"%m-%d"), sep = ""))
+                }
+                
+                if(i == 1){deltaT = "day"}
+                if(i == 2){deltaT = "month"}
+                
+                xPred = seq(min(t0), max(t0), deltaT)
+                
+                xBasis = PredictMat(basis$splines[[i]],data.frame(tTemp=as.numeric(xPred)))
+                
+                #xBasis = predict(basis$splines[[i]],xPred)
+                
+                yPred = xBasis %*% t(alphaH[keepRun,basis$idx[[i]],k,1])
+                
+                plot(xPred,rowMeans(yPred),
+                     ylim =  quantile(yPred, c(0.01,0.99)),
+                     main = basis$tempPeriod[i],lty=1, ylab="", type="l", lwd=2,col = color[i])
+                abline(h = 0, col="grey")
+                polygon(c(xPred, rev(xPred)), c(apply(yPred,1,quantile,0.05), rev(apply(yPred,1,quantile,0.95))),
+                        border=NA, col = adjustcolor(color[i], alpha.f = 0.15))
+                
+                if(nBatch > 1){
+                  for(nb in 2:nBatch){
+                    yPred = xBasis %*% t(alphaH[keepRun,basis$idx[[i]],k,nb])
+                    points(xPred,rowMeans(yPred),
+                           ylab="", type="l", lwd=2,col = color[i], lty=nb)
+                    polygon(c(xPred, rev(xPred)), c(apply(yPred,1,quantile,0.05), rev(apply(yPred,1,quantile,0.95))),
+                            border=NA, col = adjustcolor(color[i], alpha.f = 0.15))
+                  }
+                }
+              }
+              
+              
+            }
+          }else{
+            for(k in 1:nComp){
             for(i in 1:nBasis){
               t0 = y$date
               if(basis$tempPeriod[i] == "%m"){
                 t0 = as.Date(paste("2014-",format(t0,"%m-%d"), sep = ""))
               }
               
-              xPred = seq(min(t0), max(t0), "week")
+              if(i == 1){deltaT = "day"}
+              if(i == 2){deltaT = "month"}
+              xPred = seq(min(t0), max(t0), deltaT)
               xBasis = predict(basis$splines[[i]],xPred)
               
               yPred = xBasis %*% t(alphaH[keepRun,basis$idx[[i]],k,1])
@@ -211,6 +253,7 @@
             }
             
             
+          }
           }
         }
       }

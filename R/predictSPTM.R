@@ -33,6 +33,7 @@
     
     tempBasis = SPTMresobj$GibbsOut$basis$tempBasis
     tempPeriod = SPTMresobj$GibbsOut$basis$tempPeriod
+    splinesType = SPTMresobj$GibbsOut$basis$type
     
     nBasis = length(basis$idx)
     nSites = length(ID)
@@ -117,8 +118,40 @@
       YppredHN = matrix(NA, nrow = length(keepRun), ncol = length(newTime))
       
       Xtilde = simple_triplet_zero_matrix(nrow = length(newTime), ncol = nNewSites*nCov*nBasis)
+      
       newBB = NULL
       j=0
+      
+      if(splinesType == "penalized"){
+        for(i in 1:length(tempPeriod)){
+          j = j +1 
+          #browser()
+          if(j == 1){
+            dat = data.frame(tTemp = as.numeric(as.Date(paste("2014-",format(newTime,"%m-%d"), sep = ""))))
+            #BBT <- smoothCon(s(tTemp,k=nSplines[j]),data=dat,knots=NULL)[[1]]
+            
+            BBT <- PredictMat(basis$splines[[i]],dat)
+            #BBT = splineFun(tTemp, df = nSplines[j],
+            #                Boundary.knots = c(min(tTemp)-diff(range(tTemp))/(1*nSplines[j]),max(tTemp)+diff(range(tTemp))/(1*nSplines[j])))
+          }
+          if(j == 2){
+            dat = data.frame(tTemp = as.numeric(newTime))
+            BBT <- PredictMat(basis$splines[[i]],dat)
+            #BBT <- smoothCon(s(tTemp,k=nSplines[j]),data=dat,knots=NULL)[[1]]
+            #BBT = splineFun(t, df = nSplines[j], 
+            #                Boundary.knots = c(min(t)-diff(range(t))/(1*nSplines[j]),max(t)+diff(range(t))/(1*nSplines[j])))
+          }
+          if(j == 3){
+            BBT = matrix(rep(1, length(t)), ncol=1)
+          }
+          
+          newBB = c(newBB,list(BBT))
+        }
+        
+        #newsplines = do.call(cbind,lapply(newBB, function(x) x$X))
+        newsplines = do.call(cbind,newBB)
+      }else{
+      
       for(i in tempPeriod){
         j = j +1 
         if(tempBasis == "bs"){
@@ -139,9 +172,8 @@
         
         newBB = c(newBB,list(nBBT))
       }
-      
       newsplines = do.call(cbind,newBB)
-      
+      }
       Btilde = matrix(0, nrow = length(newTime), ncol = ncol(alphaH))
       
       BtildeO = matrix(0, nrow = nObs, ncol = ncol(alphaH))

@@ -16,7 +16,13 @@
     siteRE = FALSE
     
     cov = cbind(cov, matrix(1, nrow = nrow(y), ncol = 1))
-    basisSplines = do.call(cbind,basis$splines)
+    
+    if(basis$type == "penalized"){
+      basisSplines = do.call(cbind,lapply(basis$splines, function(x) x$X))
+    }else{
+      basisSplines = do.call(cbind,basis$splines)
+    }
+    
     
     nBasis = length(basis$idx)
     nSites = length(ID)

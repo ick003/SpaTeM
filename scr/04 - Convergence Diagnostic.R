@@ -1,6 +1,6 @@
 library(coda)
 
-mcmcChain = sptmRes2mcmc(ResGibbs, c(62:68))
+mcmcChain = sptmRes2mcmc(ResGibbs,67:71)
 gelman.diag(mcmcChain)
 gelman.plot(mcmcChain)
 

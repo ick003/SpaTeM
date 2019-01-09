@@ -9,12 +9,12 @@ subWaterQ.df.TEST <- WaterQ.df %>% filter(param == parameterName & date > "2011-
   filter(site != "A5051005") %>%
   select(ID = site, date, obs = value) %>% mutate(ID = factor(ID)) %>% na.omit()
 
-subWaterQ.df <- WaterQ.df %>% filter(param == parameterName & date > "2007-12-31" & date < "2012-01-01") %>% 
+subWaterQ.df <- WaterQ.df %>% filter(param == parameterName & date > "2000-12-31" & date < "2012-01-01") %>% 
   filter(site != "A5051005") %>%
   select(ID = site, date, obs = value) %>% mutate(ID = factor(ID)) %>% na.omit()
 
-# ggplot(data = subWaterQ.df , aes(x=date, y = log(obs), group = ID, col = ID))+
-#   geom_point(size = 1.5)+geom_line(size = 0.01) + theme_bw()
+ ggplot(data = subWaterQ.df , aes(x=date, y = log(obs), group = ID, col = ID))+
+   geom_point(size = 1.5)+geom_line(size = 0.01) + theme_bw()
 
 # Land use information: select second subdivision, sum the surface, keep only sites with nitrogen measures and remove landuse with no surface
 
@@ -35,3 +35,5 @@ subCoords.df <- Coords.df %>% filter(site %in% rownames(subLandUse.df)) %>% sele
   distinct() %>% droplevels() 
 
 save(subCoords.df, subLandUse.df, subWaterQ.df, subWaterQ.df.TEST, file = "data/Rdata/dataNitrogenPost2008.Rdata")
+
+save(subCoords.df, subLandUse.df, subWaterQ.df, subWaterQ.df.TEST, file = "data/Rdata/dataNitrogenPost2000.Rdata")

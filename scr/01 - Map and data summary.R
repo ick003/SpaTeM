@@ -24,11 +24,16 @@ world_GAUL1 = readOGR("./data/shapefiles/ne_50m_admin_1_states_provinces/",    l
 australia <- st_as_sf(world_GAUL1) %>% filter(admin == "Australia")  %>% mutate_if(is.factor, as.character) 
 australia <- cbind(australia, st_coordinates(st_centroid(australia)))
 
+# Correct ACT y cordinates for map readability
+australia$Y[australia$name == "Australian Capital Territory"] = -36.0
+
 load("./data/Rdata/GoyderData.Rdata")
 proj4string(CatchmentMap) <- proj4string(world_GAUL1)
 
 catchmentBox <- as(raster::extent(CatchmentMap@bbox), "SpatialPolygons")
 proj4string(catchmentBox)<- proj4string(world_GAUL1)
+
+
 
 pAustralia <- ggplot(data = australia) + 
  geom_sf(size = 0.15) + 
@@ -49,12 +54,26 @@ StationsName = Stations %>% filter(Nitrogen == 1) %>% distinct()
 
 levels(Stations$Nitrogen) <- list("Station w Nitrogen"="1", "Station w/o Nitrogen"="0")
 
+StationsName$latitude[StationsName$site == "A5040508"] = -34.8489
+StationsName$latitude[StationsName$site == "A5030509"] = -35.04613
+StationsName$latitude[StationsName$site == "A5031006"] = StationsName$latitude[StationsName$site == "A5031006"] - 0.015
+StationsName$longitude[StationsName$site == "A5031006"] = 138.8011
+
+StationsName$latitude[StationsName$site == "A5031007"] = StationsName$latitude[StationsName$site == "A5031007"] - 0.015
+StationsName$longitude[StationsName$site == "A5031007"] = 138.6611
+
+StationsName$latitude[StationsName$site == "A5031008"] = StationsName$latitude[StationsName$site == "A5031008"] - 0.01
+StationsName$longitude[StationsName$site == "A5031008"] = 138.8011
+
+StationsName$latitude[StationsName$site == "A5030526"] = StationsName$latitude[StationsName$site == "A5030526"]
+StationsName$longitude[StationsName$site == "A5030526"] = 138.6611
+
 pMountLofty <- 
   ggplot(data = MountLofty) + 
   geom_sf(fill = "orange", aes(colour="Subcatchment"),size = 0.2, show.legend = "line") + 
   geom_sf(data = sastate,alpha = 0.5) + 
   geom_point(data = Stations, aes(x = longitude, y = latitude,color = Nitrogen), shape = 5)+
-  geom_text(data = StationsName, aes(x = longitude, y = latitude+0.025, label = site), size = 2.5)+
+  geom_text(data = StationsName, aes(x = longitude, y = latitude+0.015, label = site), size = 2.5)+
   coord_sf(ylim = catchmentBox@bbox[2,], xlim = catchmentBox@bbox[1,]) + 
   scale_colour_manual(name = NULL, values = c("Station w/o Nitrogen" = "darkgreen","Station w Nitrogen"="red", "Subcatchment" = "darkgrey"),
                       guide = guide_legend(override.aes = list(linetype = c("blank","blank", "solid"), 

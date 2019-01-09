@@ -68,7 +68,7 @@ plotSPTM(ResGibbs, "tempBasis")
 plotSPTM(ResGibbs, "alpha")
 plotSPTM(ResGibbs, "beta")
 plotSPTM(ResGibbs, "spatialBasis")
-plotSPTM(ResGibbs, "hyperparameter", keepRun = 1500:2500)
+plotSPTM(ResGibbs, "hyperparameter")
 plotSPTM(ResGibbs, "residuals")
 plotSPTM(ResGibbs, "covariates")
 
@@ -76,11 +76,15 @@ predData = df$obs.data
 predData$yP =  colMeans(ResGibbs$GibbsOut$yHat[-1,,1])
 predData$CI025 = apply(ResGibbs$GibbsOut$yHat[-1,,1],2,quantile,0.025)
 predData$CI975 = apply(ResGibbs$GibbsOut$yHat[-1,,1],2,quantile,0.975)
+predPost = predictSPTM(ResGibbs,posterior = F)
+predData$yPp =  predPost$YpwN
+predData$CI025p = predPost$CI025
+predData$CI975p = predPost$CI975
 
 ggplot(data = predData, aes(x = date, y = obs, col = ID)) + geom_point(size=0.5) + #geom_line(size = 0.5) + 
   geom_segment(aes(x = date, xend = date, y = yP, yend = obs))+
   geom_line(aes(x = date, y = yP, group = ID), col = "black") + facet_wrap(~ID, scales = "free_x") + 
-  geom_ribbon(aes(ymin = CI025, ymax = CI975), fill = "grey70", col = "grey70", alpha = 0.2)
+  geom_ribbon(aes(ymin = CI025p, ymax = CI975p), fill = "grey70", col = "grey70", alpha = 0.2)
 
 SSE_S = sqrt(sum((predData$obs - predData$yP)^2))
 

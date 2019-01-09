@@ -1,5 +1,5 @@
 "SPTMData" <- 
-  function(df.obs, tempBasis = "re", tempPeriod = "%m", nSplines = 3){
+  function(df.obs, tempBasis = "re", tempPeriod = "%m", nSplines = 3, splinesType = "poly"){
   
   SiteID = levels(df.obs$ID)
   
@@ -9,16 +9,49 @@
   idxT = NULL
   j=0
   maxIdx = 0
+  
+  
+  if(splinesType == "penalized"){
+    for(i in tempPeriod){
+      j = j +1 
+        if(j == 1){
+          dat = data.frame(tTemp = as.numeric(as.Date(paste("2014-",format(t,"%m-%d"), sep = ""))))
+          BBT <- smoothCon(s(tTemp,k=nSplines[j]),data=dat,knots=NULL)[[1]]
+          #BBT = splineFun(tTemp, df = nSplines[j],
+          #                Boundary.knots = c(min(tTemp)-diff(range(tTemp))/(1*nSplines[j]),max(tTemp)+diff(range(tTemp))/(1*nSplines[j])))
+        }
+        if(j == 2){
+          dat = data.frame(tTemp = as.numeric(t))
+          BBT <- smoothCon(s(tTemp,k=nSplines[j]),data=dat,knots=NULL)[[1]]
+          #BBT = splineFun(t, df = nSplines[j], 
+          #                Boundary.knots = c(min(t)-diff(range(t))/(1*nSplines[j]),max(t)+diff(range(t))/(1*nSplines[j])))
+        }
+        if(j == 3){
+          BBT = matrix(rep(1, length(t)), ncol=1)
+        }
+
+      BB = c(BB,list(BBT))
+      idxt = 1:ncol(BBT$X) + maxIdx #(ncol(BB) - ncol(BBT))
+      maxIdx = max(idxt)
+      idxT = c(idxT,list(idxt))
+    }
+  }else{
+    if(splinesType == "poly"){
+      splineFun = function(...) bs(intercept = T, ...)
+    }
+    if(splinesType == "cubic"){
+      splineFun = function(...) ns(intercept  =T, ...)
+    }
   for(i in tempPeriod){
     j = j +1 
     if(tempBasis == "bs"){
       if(j == 1){
         tTemp = as.Date(paste("2014-",format(t,"%m-%d"), sep = ""))
-        BBT = bs(tTemp, df = nSplines[j],
+        BBT = splineFun(tTemp, df = nSplines[j],
                  Boundary.knots = c(min(tTemp)-diff(range(tTemp))/(1*nSplines[j]),max(tTemp)+diff(range(tTemp))/(1*nSplines[j])))
       }
       if(j == 2){
-        BBT = bs(t, df = nSplines[j], 
+        BBT = splineFun(t, df = nSplines[j], 
                  Boundary.knots = c(min(t)-diff(range(t))/(1*nSplines[j]),max(t)+diff(range(t))/(1*nSplines[j])))
       }
       if(j == 3){
@@ -34,8 +67,9 @@
     maxIdx = max(idxt)
     idxT = c(idxT,list(idxt))
 }
+  }
   
-  sptm.data = list(obs.data = df.obs, basis = BB, list.idx = idxT, tempBasis = tempBasis, tempPeriod = tempPeriod)
+  sptm.data = list(obs.data = df.obs, basis = BB, list.idx = idxT, tempBasis = tempBasis, tempPeriod = tempPeriod, splinesType = splinesType)
   class(sptm.data) <- 'sptm'
   return(sptm.data)
 }
@@ -44,7 +78,7 @@
   
   
   sptm.model = list(data = df.sptm$obs.data,
-                    basis = list(splines = df.sptm$basis, idx = df.sptm$list.idx, tempBasis = df.sptm$tempBasis, tempPeriod = df.sptm$tempPeriod),
+                    basis = list(splines = df.sptm$basis, idx = df.sptm$list.idx, tempBasis = df.sptm$tempBasis, tempPeriod = df.sptm$tempPeriod, type = df.sptm$splinesType),
                     lu = df.lu,
                     coord = coordinates,
                     covariates = cov,
