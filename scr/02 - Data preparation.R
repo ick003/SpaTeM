@@ -6,11 +6,11 @@ library(tidyverse)
 parameterName = "Nitrate + Nitrite as Nitrogen (mg/L)"
 
 subWaterQ.df.TEST <- WaterQ.df %>% filter(param == parameterName & date > "2011-12-31") %>% 
-  filter(site != "A5051005") %>%
+#  filter(site != "A5051005") %>%
   select(ID = site, date, obs = value) %>% mutate(ID = factor(ID)) %>% na.omit()
 
 subWaterQ.df <- WaterQ.df %>% filter(param == parameterName & date > "2000-12-31" & date < "2012-01-01") %>% 
-  filter(site != "A5051005") %>%
+#  filter(site != "A5051005") %>%
   select(ID = site, date, obs = value) %>% mutate(ID = factor(ID)) %>% na.omit()
 
  ggplot(data = subWaterQ.df , aes(x=date, y = log(obs), group = ID, col = ID))+

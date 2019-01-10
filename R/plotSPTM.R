@@ -189,7 +189,7 @@
                 }
                 
                 if(i == 1){deltaT = "day"}
-                if(i == 2){deltaT = "month"}
+                if(i == 2){deltaT = "week"}
                 
                 xPred = seq(min(t0), max(t0), deltaT)
                 

@@ -7,6 +7,7 @@ library(tidyverse)
 library(sf)
 library(ggpubr)
 library(gridExtra)
+library(rgeos)
 
 theme_set(theme_bw())
 theme_opts <- theme(
@@ -33,7 +34,13 @@ proj4string(CatchmentMap) <- proj4string(world_GAUL1)
 catchmentBox <- as(raster::extent(CatchmentMap@bbox), "SpatialPolygons")
 proj4string(catchmentBox)<- proj4string(world_GAUL1)
 
+# Streams
 
+stream = readOGR("./data/shapefiles/stream_australia/",    layer="au_riv_30s")
+
+stream <- spTransform(stream, CRS(proj4string(CatchmentMap)))
+stream_sa <- stream[CatchmentMap,]
+river_mountlofty <- st_as_sf(stream_sa)
 
 pAustralia <- ggplot(data = australia) + 
  geom_sf(size = 0.15) + 
@@ -70,14 +77,16 @@ StationsName$longitude[StationsName$site == "A5030526"] = 138.6611
 
 pMountLofty <- 
   ggplot(data = MountLofty) + 
-  geom_sf(fill = "orange", aes(colour="Subcatchment"),size = 0.2, show.legend = "line") + 
-  geom_sf(data = sastate,alpha = 0.5) + 
+  geom_sf(fill = "grey",aes(colour="Subcatchment"),size = 0.2) + 
+  geom_sf(data = sastate,fill = "white",alpha = 0.5) + 
+  geom_sf(data = river_mountlofty, aes(colour="Streams"), size = 0.2, show.legend = "line") + 
   geom_point(data = Stations, aes(x = longitude, y = latitude,color = Nitrogen), shape = 5)+
   geom_text(data = StationsName, aes(x = longitude, y = latitude+0.015, label = site), size = 2.5)+
   coord_sf(ylim = catchmentBox@bbox[2,], xlim = catchmentBox@bbox[1,]) + 
-  scale_colour_manual(name = NULL, values = c("Station w/o Nitrogen" = "darkgreen","Station w Nitrogen"="red", "Subcatchment" = "darkgrey"),
-                      guide = guide_legend(override.aes = list(linetype = c("blank","blank", "solid"), 
-                                                               shape = c(5,5, NA)))) + 
+  scale_colour_manual(name = NULL, values = c("Station w/o Nitrogen" = "darkgreen","Station w Nitrogen"="red", "Subcatchment" = "white", "Streams" = "blue"),
+                      guide = guide_legend(override.aes = list(linetype = c("blank","blank", "solid", "solid"), 
+                                                               shape = c(5,5, NA, NA)))) + 
+#    scale_fill_manual(name = NULL, values = c("Subcatchment" = "grey")) +
   ggsn::scalebar(MountLofty, dist = 10, st.size=3,
                  st.dist = 0.0006, height=0.0004, dd2km = TRUE, model = 'WGS84')+ xlab("") + ylab("")
 
