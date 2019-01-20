@@ -118,7 +118,7 @@ function(SPTMresobj, idxRem=NULL){
 }
 
 "MurraySchemePotts" <- 
-  function(beta.init, range.beta = c(0, 1), n.colors=2, Coords = NULL, Nb = NULL, col.obs, N.run=100, print = FALSE){
+  function(beta.init, range.beta = c(0, 1), n.colors=2, Coords = NULL, Nb = NULL, col.obs, N.run=1, print = FALSE){
   
   beta.hist = matrix(0, nrow = N.run, ncol = length(beta.init))
   beta.hist[1,] = beta.init
@@ -155,7 +155,7 @@ function(SPTMresobj, idxRem=NULL){
     
     beta.temp = rep(beta.p, n.colors)
     
-    res = SwendsenWangAlg(beta.temp, Neigh_Bonds = bds, col.obs = zz, Nrun = 20, sampling = "uniform")
+    res = SwendsenWangAlg(beta.temp, Neigh_Bonds = bds, col.obs = zz, Nrun = 10, sampling = "uniform")
     
     z.p = res$col.new
     
@@ -185,12 +185,12 @@ function(SPTMresobj, idxRem=NULL){
   }
   
   RET = list(beta.old = beta.init, beta.new = beta, beta.sample = beta.hist,
-             rate = rate)
+             rate = rate, z.new = z.p)
   return(RET)
   }
 
 "SwendsenWangAlg" <- 
-  function(beta, Coord = NULL, Neigh_Bonds = NULL, col.obs, Nrun = 10 ,sampling = "else"){
+  function(beta, Coord = NULL, Neigh_Bonds = NULL, col.obs, Nrun = 1 ,sampling = "else"){
   
   n.vert = length(col.obs)
   
@@ -506,7 +506,7 @@ function(SPTMresobj, idxRem=NULL){
         seasonality[,1:nBasis, which.max(X.true[i,])] %*% matrix(betaTrue[which.max(X.true[i,]),2:(2+nBasis-1)], ncol=1)
     }
     
-    SpatialRF = rmvnorm(1, mean=rep(0,nSite), sigma = parameters$tau*exp(-parameters$phi*D))
+    SpatialRF = mvtnorm::rmvnorm(1, mean=rep(0,nSite), sigma = parameters$tau*exp(-parameters$phi*D))
     
     for(j in date){
       sim.raw.obs$obs[sim.raw.obs$date == j] = sim.raw.obs$obs[sim.raw.obs$date == j] + SpatialRF + rnorm(length(diag(D)),0,parameters$sigma)

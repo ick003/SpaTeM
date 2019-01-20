@@ -11,7 +11,7 @@
                          phiT = list(inf = 0.1, sup = 1, dist = "unif"),
                          pi = list(alpha0 = matrix(1,nrow=1,ncol=1), dist = "dirichlet"),
                          rho = list(inf=0.1, sup=3, dist="unif")),
-           mixture = TRUE, N.run = 10000,
+           mixture = TRUE, N.run = 10000,Blocks =NULL,
            print.res = FALSE, debug=FALSE, meanFunc = NULL, Xcov = NULL,
            nBatch = 1, parallel = F, nCluster = NULL, kernelList = NULL){
     
@@ -31,13 +31,13 @@
     if(model == 'noMixture'){
       
       if(tempRE == 'notcorr'){
-        res = gibbSamplerG(priors, y, basis = basis, ID = levels(y$ID), coords = coords, cov = cov,SpTcov = SpTcov,Bds = NULL,
+        res = gibbSamplerG(priors, y, basis = basis, ID = levels(y$ID), coords = coords, cov = cov,SpTcov = SpTcov,Bds = NULL,Blocks =NULL,
                            N.run = N.run, debug, print.res = print.res, nBatch = nBatch,
                            parallel = parallel, nCluster = nCluster)
       }
       
       if(tempRE == 'corr'){
-        res = gibbSamplerS2(priors, y, basis = basis, ID = levels(y$ID), coords = coords, cov = cov,
+        res = gibbSamplerS2(priors, y, basis = basis, ID = levels(y$ID), coords = coords, cov = cov,Blocks =NULL,
                             N.run = N.run, debug, print.res = print.res,
                             parallel = parallel, nCluster = nCluster)
       }
@@ -49,12 +49,12 @@
     
     if(model == 'simpleMixture'){
       if(tempRE == 'notcorr'){
-        res = gibbSamplerG(priors, y, basis = basis, ID = levels(y$ID), coords = coords, cov = cov,SpTcov = SpTcov,Bds = NULL,
+        res = gibbSamplerG(priors, y, basis = basis, ID = levels(y$ID), coords = coords, cov = cov,SpTcov = SpTcov,Bds = NULL,Blocks =NULL,
                            N.run = N.run, debug, print.res = print.res, nBatch = nBatch,
                            parallel = parallel, nCluster = nCluster)
       }
       if(tempRE == 'gp'){
-        res = gibbSamplerGP(priors, y, basis = basis, ID = levels(y$ID), coords = coords, cov = cov,SpTcov = SpTcov,Bds = NULL,
+        res = gibbSamplerGP(priors, y, basis = basis, ID = levels(y$ID), coords = coords, cov = cov,SpTcov = SpTcov,Bds = NULL,Blocks =NULL,
                             N.run = N.run, debug, print.res = print.res, nBatch = nBatch,
                             parallel = parallel, nCluster = nCluster, kernelList = kernelList)
       }
@@ -76,7 +76,7 @@
       
       Bds = comPts(tile.dd)
       
-      res = gibbSamplerG(priors, y, basis = basis, ID = levels(y$ID), coords = coords, cov = cov,SpTcov = SpTcov,Bds= Bds,
+      res = gibbSamplerG(priors, y, basis = basis, ID = levels(y$ID), coords = coords, cov = cov,SpTcov = SpTcov,Bds= Bds,Blocks = Blocks,
                          N.run = N.run, debug, print.res = print.res, nBatch = nBatch,
                          parallel = parallel, nCluster = nCluster)
       

@@ -1,6 +1,6 @@
 "plotSPTM" <- 
   function(SPTMresobj, type = "prediction", color = NULL, cex.axis=NULL, n_x_lab = 7,
-           siteDisp = NULL, siteSpTcov = NULL, keepRun = NULL){
+           siteDisp = NULL, compDisp = NULL, siteSpTcov = NULL, keepRun = NULL){
     
     
     alphaH = SPTMresobj$GibbsOut$theta$alphaH
@@ -18,7 +18,7 @@
     
     kernelList = SPTMresobj$GibbsOut$kernelList
     
-    if(SPTMresobj$model %in% "spatialMixture"){
+    if (SPTMresobj$model %in% "spatialMixture") {
       rhoH = SPTMresobj$GibbsOut$theta$rhoH
     }
     
@@ -53,14 +53,14 @@
     }
     
     if(type == "residuals"){
-      
-      Yp = colMeans(yHat[-1,,1])
+
+      Yp = colMeans(yHat[keepRun,,1], na.rm=T)
       
       residuals.df = y
       residuals.df$prediction = Yp
       residuals.df$residuals = Yp - y$obs
       
-      zID = data.frame(ID = ID, Component = apply(zH[Nrun,,,1],3,which.max))
+      zID = data.frame(ID = ID, Component = apply(as.matrix(apply(zH[keepRun,,,1], 3, mean)),1,which.max))
       
       residuals.df = merge(residuals.df, zID, by = "ID")
       
@@ -68,13 +68,13 @@
       
       x = residuals.df$date
       plot(x, rep(0, length(x)), type="n", main = "Residuals over time",ylab="residuals",xlab = "time",
-           ylim = c(-max(abs(df$obs.data$obs), na.rm=T),max(abs(df$obs.data$obs), na.rm=T)))
-      points(x, residuals.df$residuals)
+           ylim = c(-max(abs(y$obs), na.rm=T),max(abs(y$obs), na.rm=T)))
+      points(x, residuals.df$residuals, cex=0.5)
       
       plot(0, type="n", xlim = range(y$obs, na.rm=T),ylab="predicted",xlab = "observed",
            ylim  = range(y$obs, na.rm=T), main = "Predicted vs Observed")
       abline(a=0,b=1)
-      points(residuals.df$obs, residuals.df$prediction)
+      points(residuals.df$obs, residuals.df$prediction, cex=0.5)
       
       hist(residuals.df$residuals, main = "Histogram of residuals")
       
@@ -95,6 +95,8 @@
         reduction = floor((prod(dim.plot) - nBasis) / dim.plot[1])
         dim.plot = dim.plot - c(reduction, 0)
       }
+      if(!is.null(compDisp)){nComp = length(compDisp); idxComp = compDisp}else{idxComp = 1:nComp}
+      
       par(mfrow=c(nComp,nBasis), mar=c(2,2,1,1))
       
       if(is.null(color)){color = brewer.pal(max(nComp,3), "Set2")}
@@ -181,7 +183,7 @@
         }else{
           if(SPTMresobj$GibbsOut$basis$type == "penalized"){
             
-            for(k in 1:nComp){
+            for(k in idxComp){
               for(i in 1:nBasis){
                 t0 = y$date
                 if(basis$tempPeriod[i] == "%m"){
@@ -220,7 +222,7 @@
               
             }
           }else{
-            for(k in 1:nComp){
+            for(k in idxComp){
             for(i in 1:nBasis){
               t0 = y$date
               if(basis$tempPeriod[i] == "%m"){

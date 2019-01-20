@@ -108,6 +108,8 @@
       
       nNewSites = nrow(newLoc)
       
+      #browser()
+      
       newZ = NULL
       for(nID in unique(newID)){
         if(nID %in% SPTMresobj$GibbsOut$ID){
