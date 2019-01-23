@@ -22,7 +22,7 @@
         }
         if(j == 2){
           dat = data.frame(tTemp = as.numeric(t))
-          BBT <- smoothCon(s(tTemp,k=nSplines[j]),data=dat,knots=NULL)[[1]]
+          BBT <- smoothCon(s(tTemp,k=nSplines[j]),data=dat,knots=NULL, absorb.cons = F)[[1]]
           #BBT = splineFun(t, df = nSplines[j], 
           #                Boundary.knots = c(min(t)-diff(range(t))/(1*nSplines[j]),max(t)+diff(range(t))/(1*nSplines[j])))
         }
@@ -37,10 +37,10 @@
     }
   }else{
     if(splinesType == "poly"){
-      splineFun = function(...) bs(intercept = T, ...)
+      splineFun = function(...) bs(intercept = F, ...)
     }
     if(splinesType == "cubic"){
-      splineFun = function(...) ns(intercept  =T, ...)
+      splineFun = function(...) ns(intercept  =F, ...)
     }
   for(i in tempPeriod){
     j = j +1 
@@ -475,7 +475,7 @@ function(SPTMresobj, idxRem=NULL){
       }
     if(byDate=="week"){
       for(i in 1:nLandUse){
-      seasonality = cbind(cos(((as.numeric(format(date, "%W")) + shift[i])*2*3.146) / 52),sin(((as.numeric(format(date, "%W")) + shift[i])*2*3.146) / 52)^2)
+      seasonality[,,i] = cbind(cos(((as.numeric(format(date, "%W")) + shift[i])*2*3.146) / 52),sin(((as.numeric(format(date, "%W")) + shift[i])*2*3.146) / 52)^2)
       }
       }
     
@@ -519,8 +519,7 @@ function(SPTMresobj, idxRem=NULL){
         keepObs = sort(sample(x = 1:nrow(sim.raw.obs), size = round(nrow(sim.raw.obs)*(1-missingMeasures$ratio))))
         sim.raw.obs = sim.raw.obs[keepObs,]}
     }
-    #sim.raw.obs$ID = as.character(sim.raw.obs$ID)
-    #sim.raw.cov$ID = as.character(sim.raw.cov$ID)
+
     return(list(df = sim.raw.obs, X = sim.raw.cov, coordinates = locations, luComp = LU.df, 
                 betaTrue = betaTrue, grTrue = LU.true, parTrue = parameters))
   }
