@@ -53,6 +53,7 @@
     piHist = array(NA, dim = c(N.run, nComp, nSites))
     zHist = array(NA, dim = c(N.run, nComp, nSites))
     logPostDist = matrix(NA, nrow = N.run,ncol = 1)
+    dpriorsHist = matrix(NA, nrow = N.run, ncol = 9)
     logLike = matrix(NA, nrow = N.run,ncol = 1)
     yHatHist = matrix(NA, nrow = N.run, ncol = nObs)
     
@@ -70,6 +71,7 @@
     logPostDistH= array(NA, dim = c(N.run,1, nBatch))
     logLikeH= array(NA, dim = c(N.run,1, nBatch))
     yHatH = array(NA, dim = c(dim(yHatHist), nBatch))
+    dpriorsH = array(NA, dim = c(dim(dpriorsHist), nBatch))
     
     #Xtilde = matrix(0,nrow = nObs, ncol = nSites*nCov*nBasis)
     Xtilde = simple_triplet_zero_matrix(nrow = nObs, ncol = nSites*nCov*nBasis)
@@ -511,8 +513,7 @@
           }
  
           # Updating z
-          MuG = Mu
-          
+
           if(!is.null(Bds)){vois = getCanStatF(Bds, zz.temp, nComp)}else{
             vois = matrix(0, nSites, nComp)
           }
@@ -539,10 +540,8 @@
             idxID = which(y$ID == ID[i])
             zObsProb = NULL
             for(j in 1:nComp){
-              logProb[i,j] = sum(dnorm(MuG[idxID], YpComp[idxID,j], sigma2Hist[t], log=T), na.rm=T) + rhoHist[t] * vois[i,j]
-              #zObsProb = cbind(zObsProb, (dnorm(MuG[idxID], YpComp[idxID,j], sigma2Hist[t], log=T) + t(log(piCurr))[i,j]))
+              logProb[i,j] = sum(dnorm(Mu[idxID], YpComp[idxID,j], sigma2Hist[t], log=T), na.rm=T) + rhoHist[t] * vois[i,j]
             }
-            #zObs = rbind(zObs, rowSums(matrix(apply(exp(zObsProb), 1, function(x) rmultinom(1,1,x)), nrow = nComp)))
           }
           
           piCurr = matrix(piHist[t-1,,], nrow = nComp)
@@ -570,7 +569,7 @@
                 idxID = which(y$ID == ID[i])
                 zObsProb = NULL
                 for(j in 1:nComp){
-                  logProb[i,j] = sum(dnorm(MuG[idxID], YpComp[idxID,j], sigma2Hist[t], log=T), na.rm=T) + rhoHist[t] * vois[i,j]
+                  logProb[i,j] = sum(dnorm(Mu[idxID], YpComp[idxID,j], sigma2Hist[t], log=T), na.rm=T) + rhoHist[t] * vois[i,j]
                 }
               logProb[i,] = logProb[i,] + t(log(piCurr))[i,]
               mlogProb = matrix(apply(logProb,1, function(x) x - max(x, na.rm=T)), ncol=nComp, byrow=T)
@@ -597,7 +596,8 @@
             MuA = MuB = Mu - SpTcov %*% gammaHist[t,]
             MuG = Mu - crossprod_simple_triplet_matrix(t(Xtilde), betaHist[t,])
           }else{
-            MuA = MuB = MuG = Mu
+            MuA = MuB = Mu
+            MuG = Mu - crossprod_simple_triplet_matrix(t(Xtilde), betaHist[t,])
           }
           
           # Likelihood and priors
@@ -681,13 +681,19 @@
           prPi = prZ = 0
           for(i in 1:nSites){
             isZero = which(round(piHist[t,,i],5) > 0)
-            prPi = prPi + sum(log(mixtools::ddirichlet(matrix(round(piHist[t,isZero,i],5), ncol = length(isZero)), alpha = tempAlpha[i,isZero])))
+          prPi = prPi + 
+             sum(log(
+          mixtools::ddirichlet(matrix(round(piHist[t,isZero,i],6), ncol = length(isZero)) / sum(round(piHist[t,isZero,i],6)),
+                            alpha = tempAlpha[i,isZero] )
+                ))
             prZ = prZ + log(fProb[i,which.max(zHist[t,,i])])
           }
           
           logPostDist[t] = LogL + prBeta + prGamma + prAlpha + 
             prSigma2 + prTau + prPhi+ prPi + prZ + prRho + prPi
           logLike[t] = LogL
+          
+          dpriorsHist[t, ] = cbind(prBeta, prGamma, prAlpha, prSigma2, prTau, prPhi, prZ, prRho, prPi)
           
           if((round(t/250) == (t/250)) & print.res){print(t)}
         }
@@ -704,9 +710,42 @@
         zH[,,,nb] = zHist
         logPostDistH[,,nb] = logPostDist
         logLikeH[,,nb] = logLike
+        dpriorsH[,,nb] = dpriorsHist
         yHatH[,,nb] = yHatHist
         toc(log = TRUE, quiet = TRUE)
       }
+      
+      dimnames(alphaH) <- list(1:N.run, 
+                               unlist(lapply(basis$idx, function(x) 1:length(x))),
+                              1:nComp,
+                              1:nBatch)
+      
+      dimnames(betaH) <- list(1:N.run, 
+                               paste(rep(ID, each =  nBasis), basis$tempPeriod),
+                               1:nBatch)
+      
+      dimnames(betaIH) <- list(1:N.run, 
+                               ID,
+                               1:nBatch)
+      
+      dimnames(dpriorsH) <- list(1:N.run, 
+                                 c("beta", "gamma", "alpha", "sigma2", "tau", "phi", "z", "rho", "pi"),
+                                 1:nBatch)
+      
+      dimnames(gammaH) <- list(1:N.run, 
+                                 colnames(SpTcov),
+                                 1:nBatch)
+      
+      dimnames(zH) <- list(1:N.run, 
+                           1:nComp,
+                            ID,
+                           1:nBatch)
+      
+      dimnames(piH) <- list(1:N.run, 
+                           1:nComp,
+                           ID,
+                           1:nBatch)
+      
       log.lst <- tic.log(format = FALSE)
       tic.clearlog()
       timings <- unlist(lapply(log.lst, function(x) x$toc - x$tic))
@@ -716,7 +755,7 @@
                             piH = piH, zH = zH),
                DistM = list(DM = DistMat, DMB = DistMatBeta),
                y = y, basis = basis, ID = ID ,coords = coords,cov = cov,sptcov = SpTcov, yHat = yHatH,
-               priors = priors, execTime = timings, logPostDist = list(Post = logPostDistH, ll = logLikeH))
+               priors = priors, execTime = timings, logPostDist = list(Post = logPostDistH, ll = logLikeH, dPriors = dpriorsH))
     
     return(RET)
     

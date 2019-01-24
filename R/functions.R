@@ -795,12 +795,12 @@ function(SPTMresobj, idxRem=NULL){
   function(n, m, s, constrained = F, A = NULL, e= NULL){
     sam = NULL
     if(!constrained){
-      sam = rmvnorm(n, mean = m, sigma = s, method = 'chol')
+      sam = mvtnorm::rmvnorm(n, mean = m, sigma = s, method = 'chol')
     }
     if(constrained){
       for(i in 1:n){
       L = t(chol(solve(s)))
-      zi = rmvnorm(1,rep(0, nrow(s)), diag(1, nrow(s)))
+      zi = mvtnorm::rmvnorm(1,rep(0, nrow(s)), diag(1, nrow(s)))
       v = solve(t(L),t(zi))
       xi = m + v
       Vnk = solve(s) %*% t(A)
@@ -854,7 +854,7 @@ function(SPTMresobj, idxRem=NULL){
     
     if(dim(SPTMresobj$GibbsOut$theta$alphaH)[3] == 1){
 
-    idxMAP = which.max(SPTMresobj$GibbsOut$logPostDist$Post[keepRun,,1])  
+    idxMAP = which.max(SPTMresobj$GibbsOut$logPostDist$ll[keepRun,,1])  
     
     parAlpha = list(m = SPTMresobj$GibbsOut$theta$alphaH[keepRun[idxMAP],,1,1], 
                       s = apply(SPTMresobj$GibbsOut$theta$alphaH[keepRun,,1,1],2,sd))
@@ -878,8 +878,7 @@ function(SPTMresobj, idxRem=NULL){
                            A = A, e = matrix(0, nrow = nBasis, ncol = 1))
     
     betaTilde = samplePar(n = nSample, m = parBeta$m, s = diag(parBeta$s)*c, constrained = F)
-    betaITilde = samplePar(n = nSample, m = parBetaI$m, s = diag(parBetaI$s)*c, constrained = T, 
-                           A = matrix(1, nrow=1, ncol = length(parBetaI$m)), e = matrix(0, nrow = 1, ncol = 1))
+    betaITilde = samplePar(n = nSample, m = parBetaI$m, s = diag(parBetaI$s)*c, constrained = F)
     gammaTilde = samplePar(n = nSample, m = parGamma$m, s = diag(parGamma$s)*c, constrained = F)
     sigma2Tilde = rgamma(nSample, parSigma2$m/c,parSigma2$s/c)
     
@@ -901,8 +900,7 @@ function(SPTMresobj, idxRem=NULL){
     
     dPrior =mvtnorm::dmvnorm(betaTilde, mean = rep(priors$beta$m0, length(parBeta$m)),sigma = diag(priors$beta$s0, length(parBeta$m)),  log = T) + 
       mvtnorm::dmvnorm(gammaTilde, mean = rep(priors$gamma$m0, length(parGamma$m)),sigma = diag(priors$gamma$s0, length(parGamma$m)),  log = T) + 
-      dConstrainedPar(theta = betaITilde, m = t(matrix(0, nrow=1, ncol = ncol(betaITilde))), s = diag(ncol(betaITilde)),  
-                      A = matrix(1, nrow=1, ncol = length(parBetaI$m)), e = matrix(0, nrow = 1, ncol = 1)) + 
+      mvtnorm::dmvnorm(betaITilde, mean = t(matrix(0, nrow=1, ncol = ncol(betaITilde))), sigma = diag(ncol(betaITilde)), log = T) +   
       dAlpha
       
       dIAlpha = dConstrainedPar(theta = alphaTilde, m = parAlpha$m, s = diag(parAlpha$s)*c,  
@@ -910,8 +908,7 @@ function(SPTMresobj, idxRem=NULL){
     
     dImp = mvtnorm::dmvnorm(betaTilde, mean = parBeta$m, sigma = diag(parBeta$s)*c,  log = T) + 
       mvtnorm::dmvnorm(gammaTilde, m  =  parGamma$m, sigma = diag(parGamma$s)*c, log = T) + 
-      dConstrainedPar(theta = betaITilde, m = parBetaI$m, s = diag(parBetaI$s)*c,  
-                      A = matrix(1, nrow=1, ncol = length(parBetaI$m)), e = matrix(0, nrow = 1, ncol = 1)) + 
+      mvtnorm::dmvnorm(betaITilde, m  =  parBetaI$m, sigma = diag(parBetaI$s)*c, log = T) +
       dIAlpha
     
     df = data.frame(dPrior = dPrior, dImp = dImp, logL = logL, dPost = dPrior + logL - dImp)
@@ -920,10 +917,7 @@ function(SPTMresobj, idxRem=NULL){
     
     if(dim(SPTMresobj$GibbsOut$theta$alphaH)[3] > 1){
       
-      idxMAP = which.max(SPTMresobj$GibbsOut$logPostDist$Post[keepRun,,1])  
-      
-      
-      
+      idxMAP = which.max(SPTMresobj$GibbsOut$logPostDist$ll[keepRun,,1])  
       
       parAlpha = list(m = SPTMresobj$GibbsOut$theta$alphaH[keepRun[idxMAP],,,1], 
                       s = apply(SPTMresobj$GibbsOut$theta$alphaH[keepRun,,,1], 2:3, sd))
@@ -946,15 +940,15 @@ function(SPTMresobj, idxRem=NULL){
         alphaTilde = array(NA, dim = c(nSample,length(parAlpha$m[,1]), dim(SPTMresobj$GibbsOut$theta$alphaH)[3]))
         for(i in 1:dim(SPTMresobj$GibbsOut$theta$alphaH)[3]){
           alphaTilde[,,i] = samplePar(n = nSample, m = parAlpha$m[,i], 
-                                      s = cov(SPTMresobj$GibbsOut$theta$alphaH[keepRun,,i,1])*c, constrained = F, 
+                                      s = diag(diag(cov(SPTMresobj$GibbsOut$theta$alphaH[keepRun,,i,1])*c)), constrained = T, 
                                       A = A, e = matrix(0, nrow = nBasis, ncol = 1))
         }
       
-      #  browser()
+       # browser()
       #  A %*% SPTMresobj$GibbsOut$theta$alphaH[keepRun[idxMAP],,,1]
         
       betaTilde = samplePar(n = nSample, m = parBeta$m, s = diag(parBeta$s)*c, constrained = F)
-      betaITilde = samplePar(n = nSample, m = parBetaI$m, s = diag(parBetaI$s)*c, constrained = T, 
+      betaITilde = samplePar(n = nSample, m = parBetaI$m, s = diag(parBetaI$s)*c, constrained = F, 
                              A = matrix(1, nrow=1, ncol = length(parBetaI$m)), e = matrix(0, nrow = 1, ncol = 1))
       gammaTilde = samplePar(n = nSample, m = parGamma$m, s = diag(parGamma$s)*c, constrained = F)
 
@@ -975,35 +969,30 @@ function(SPTMresobj, idxRem=NULL){
       
         dAlpha = 0
         for(j in 1:dim(SPTMresobj$GibbsOut$theta$alphaH)[3]){
-          #dAlpha = dAlpha + 
-            #dConstrainedPar(theta = alphaTilde[,,j], m = t(matrix(priors$alpha$m0, nrow=1, ncol = ncol(basisSplines))), 
-            #                                s = diag(priors$alpha$s0, ncol(basisSplines)),  
-            #                                A = A, e = matrix(0, nrow = nBasis, ncol = 1))
-          dAlpha = dAlpha + mvtnorm::dmvnorm(alphaTilde[,,j], mean = t(matrix(priors$alpha$m0, nrow=1, ncol = ncol(basisSplines))), 
-                                    sigma = diag(priors$alpha$s0, ncol(basisSplines)),  log = T)
+          dAlpha = dAlpha + 
+            dConstrainedPar(theta = alphaTilde[,,j], m = t(matrix(priors$alpha$m0, nrow=1, ncol = ncol(basisSplines))), 
+                                            s = diag(priors$alpha$s0, ncol(basisSplines)),  
+                                            A = A, e = matrix(0, nrow = nBasis, ncol = 1))
         }
-      
+        
         dBetaP = mvtnorm::dmvnorm(betaTilde, mean = rep(priors$beta$m0, length(parBeta$m)),sigma = diag(priors$beta$s0, length(parBeta$m)),  log = T)
         
       dPrior = dBetaP + 
         mvtnorm::dmvnorm(gammaTilde, mean = rep(priors$gamma$m0, length(parGamma$m)),sigma = diag(priors$gamma$s0, length(parGamma$m)),  log = T) + 
-        dConstrainedPar(theta = betaITilde, m = t(matrix(0, nrow=1, ncol = ncol(betaITilde))), s = diag(ncol(betaITilde)),  
-                        A = matrix(1, nrow=1, ncol = length(parBetaI$m)), e = matrix(0, nrow = 1, ncol = 1)) + 
+        mvtnorm::dmvnorm(betaITilde, mean = t(matrix(0, nrow=1, ncol = ncol(betaITilde))), sigma = diag(ncol(betaITilde)), log = T) +
         dAlpha
       
       
         dIAlpha = 0
         for(j in 1:dim(SPTMresobj$GibbsOut$theta$alphaH)[3]){
-          # dIAlpha = dIAlpha + dConstrainedPar(theta = alphaTilde[,,j], m = parAlpha$m[,j], s = diag(parAlpha$s[,j])*c,  
-          #                                     A = A, e = matrix(0, nrow = nBasis, ncol = 1))
-          dIAlpha = dIAlpha + mvtnorm::dmvnorm(alphaTilde[,,j], mean = parAlpha$m[,j], 
-                                      sigma = cov(SPTMresobj$GibbsOut$theta$alphaH[keepRun,,j,1])*c, log=T)
+           dIAlpha = dIAlpha + dConstrainedPar(theta = alphaTilde[,,j], m = parAlpha$m[,j], s = diag(parAlpha$s[,j])*c,  
+                                               A = A, e = matrix(0, nrow = nBasis, ncol = 1))
+
         }
       
       dImp = mvtnorm::dmvnorm(betaTilde, mean = parBeta$m, sigma = diag(parBeta$s)*c,  log = T) + 
-       mvtnorm::dmvnorm(gammaTilde, m  =  parGamma$m, sigma = diag(parGamma$s)*c, log = T) + 
-        dConstrainedPar(theta = betaITilde, m = parBetaI$m, s =diag(parBetaI$s)*c,  
-                        A = matrix(1, nrow=1, ncol = length(parBetaI$m)), e = matrix(0, nrow = 1, ncol = 1)) + 
+       mvtnorm::dmvnorm(gammaTilde, mean  =  parGamma$m, sigma = diag(parGamma$s)*c, log = T) + 
+        mvtnorm::dmvnorm(betaITilde, mean = parBetaI$m, sigma =diag(parBetaI$s)*c,  log = T) +  
         dIAlpha
 
       df = data.frame(dPrior = dPrior, dImp = dImp, logL = logL, dPost = dPrior + logL - dImp)
