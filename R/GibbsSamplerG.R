@@ -171,6 +171,8 @@
         
         Btilde = basisSplines * betaTilde
         
+        if(nComp>1){SpTcov = z0[match(y$ID, ID),]}
+        
         if(nSpTCov>0){
           MuA = MuB = Mu - SpTcov %*% gammaHist[1,]
           MuG = Mu - crossprod_simple_triplet_matrix(t(Xtilde), betaHist[1,])
@@ -179,8 +181,6 @@
           }
         
         Iter = matrix(diag(nSites)[match(y$ID, ID),], ncol = nSites)
-        
-        if(nComp>1){SpTcov = z0[match(y$ID, ID),]}
         
         Yp0 = crossprod_simple_triplet_matrix(t(Xtilde), betaHist[1,]) + SpTcov %*% gammaHist[1,]
         Ypp0 = Yp0 + Iter %*% betaIHist[1,]
@@ -200,17 +200,28 @@
               BtildeZ = Btilde[idxZ,]
               tBB = crossprod_simple_triplet_matrix(BtildeZ)
               
-              iSigmaAlpha = 1/priors$alpha$s0 * diag(ncol(alphaHist))
+              r = outer(basis$idx[[1]], basis$idx[[1]], FUN = function(X,Y){length(basis$idx[[1]])-abs(X-Y)})
+              rr = outer(basis$idx[[1]], basis$idx[[1]], FUN = function(X,Y){abs(X-Y)})
+             # browser()
+              DistAlpha1 = matrix(mapply(min,r,rr), ncol = length(basis$idx[[1]]))^2
+              DistAlpha2 = outer(basis$idx[[2]], basis$idx[[2]], FUN = function(X,Y){abs(X-Y)})^2
+              
+              SigmaAlpha = rbind(cbind(exp(-DistAlpha1),matrix(0, ncol = length(basis$idx[[2]]), nrow = length(basis$idx[[1]]))), 
+                          cbind(matrix(0, ncol = length(basis$idx[[1]]), nrow = length(basis$idx[[2]])), exp(-DistAlpha2))) 
+              #browser()
+              
+              #iSigmaAlpha = 1/priors$alpha$s0 * diag(ncol(alphaHist))
+              iSigmaAlpha = solve(SigmaAlpha)
               
               #iSigmaObsB = 1/sigma2Hist[t-1]* tBB
               iSigmaObsB = tBB
               
               alphaPostSd = solve(iSigmaAlpha + iSigmaObsB)
               
-              
+              #if(t > 450){browser()}
               alphaPostMu = alphaPostSd %*% ( crossprod_simple_triplet_matrix(BtildeZ, MuA[idxZ]) + 
                                                 iSigmaAlpha %*% matrix(priors$alpha$m0, ncol =1, nrow = nrow(iSigmaAlpha)))
-              # alphaPostMu = alphaPostSd %*% ( sigma2Hist[t-1]^(-1) * crossprod_simple_triplet_matrix(BtildeZ, MuG[idxZ]) + 
+              # alphaPostMu = alphaPostSd %*% ( sigma2Hist[t-1]^(-1) * crossprod_simple_triplet_matrix(BtildeZ, MuA[idxZ]) + 
               #                                   iSigmaAlpha %*% matrix(priors$alpha$m0, ncol =1, nrow = nrow(iSigmaAlpha)))
               
             }else{
@@ -243,7 +254,7 @@
               
               muAlphaC = alphaPostMu - solve(alphaPostSd) %*% t(A) %*% solve(A %*% solve(alphaPostSd) %*% t(A)) %*% (A %*% alphaPostMu - e)
               sigAlphaC = solve(alphaPostSd) - solve(alphaPostSd) %*% t(A) %*% solve(A %*% solve(alphaPostSd) %*% t(A)) %*% A %*% solve(alphaPostSd)
-              
+              #if(t > 250){browser()}
               #EVD_alpha = eigen(sigAlphaC)
               #iEV_alpha = 1 / EVD_alpha$values
               #iEV_alpha[EVD_alpha$values < 1e-300] = 0
@@ -304,8 +315,8 @@
             v = solve(t(L),t(zi))
             xi = betaPostMu + v
             Vnk = (betaPostSd) %*% t(Ab)
-            Wkk = Ab %*% Vnk
-            Ukn = solve(Wkk) %*% t(Vnk)
+            Wbkk = Ab %*% Vnk
+            Ukn = solve(Wbkk) %*% t(Vnk)
             ci = Ab %*% xi - eb
             betaHist[t,] = xi - t(Ukn) %*% ci
             
@@ -355,7 +366,7 @@
             
           }
           
-          Yp = crossprod_simple_triplet_matrix(t(Xtilde), betaHist[t,]) + SpTcov %*% gammaHist[t,]
+          Yp = Yp + SpTcov %*% gammaHist[t,]
           
           # Site random effect
           
@@ -395,12 +406,11 @@
           if(nComp > 0){Ypp = Yp + Iter %*% betaIHist[t,]
           }else{Ypp  = Yp}
           
-          #browser()
-          
           sigma2PostA = priors$sigma2$a0 + nObs / 2
           sigma2PostB = priors$sigma2$b0 + sum((Mu - Ypp)^2, na.rm=T) / 2 #+ nObs * priors$beta$s0 / (nObs + priors$beta$s0) * mean((Mu - Ypp0)^2)/2
           
           sigma2Hist[t] = rigamma(1, sigma2PostA, sigma2PostB)
+         # if(sigma2Hist[t] > 1){browser()}
           
           # Updating yHat
           # 
@@ -528,7 +538,7 @@
             YpComp = YpComp + SpTcov %*% gammaHist[t,]
           }
           
-          YpComp = YpComp + matrix(Iter %*% betaIHist[t,], ncol = nComp, nrow = nrow(YpComp), byrow = F)
+          YpComp = YpComp #+ matrix(Iter %*% betaIHist[t,], ncol = nComp, nrow = nrow(YpComp), byrow = F)
           
           piCurr = matrix(piHist[t-1,,], nrow = nComp)
           
@@ -589,8 +599,6 @@
             piHist[t,,i] = bayesm::rdirichlet(c(as.matrix(alpha)))
             tempAlpha = rbind(tempAlpha, alpha)
           }
-          
-          
           
           if(nSpTCov>0){
             MuA = MuB = Mu - SpTcov %*% gammaHist[t,]
@@ -736,10 +744,10 @@
                                  colnames(SpTcov),
                                  1:nBatch)
       
-      dimnames(zH) <- list(1:N.run, 
-                           1:nComp,
-                            ID,
-                           1:nBatch)
+      # dimnames(zH) <- list(1:N.run, 
+      #                      1:nComp,
+      #                       ID,
+      #                      1:nBatch)
       
       dimnames(piH) <- list(1:N.run, 
                            1:nComp,

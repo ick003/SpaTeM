@@ -19,7 +19,7 @@ sapply(paste0("R/",files.sources), source)
 sourceCpp("./src/cpp_functions.cpp")
 
 
-
+set.seed(102)
 genData = createSpTdata(max.date = as.Date("31-12-2011", format = "%d-%m-%Y"),
                         min.date = as.Date("01-01-2008", format = "%d-%m-%Y"),
                         parameters = list(sigma = 1*1e-2, tau = 0.1, phi = 1),
@@ -151,7 +151,7 @@ par(mfrow=c(1,1))
 plot(genData$coordinates, cex=0.1)
 text(genData$coordinates, labels = 1:9)
 Bds
-Blocks = list(c(1,3),c(2,6,8,9), c(4,5),c(7))
+Blocks = list(c(1,2,7),c(3,5,9), c(6,8),c(4))
 
 set.seed(1)
 ResGibbsMS = estimGibbs(df.sptmod, priors = list(beta = list(m0 = 1, s0 = 2, dist = "gauss", constrained =T),
