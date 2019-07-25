@@ -2,4 +2,9 @@
 .Rhistory
 .RData
 .Ruserdata
-scr/01 - Map and data summary.R
+scr/
+!scr/AP - Simulation study.R
+!scr/EX - London Electricity consumption.R
+figure/
+data/
+
