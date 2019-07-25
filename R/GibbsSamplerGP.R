@@ -35,7 +35,7 @@
       stop("Discrepancy between GP kernels and the number of hyperparameters")
     }
     
-    if(is.null(SpTcov)){SpTcov = matrix(1, ncol = 1, nrow = nObs)}
+    if(is.null(SpTcov)){SpTcov = matrix(1, ncol = nComp, nrow = nObs)}
     
     SpTcov = as.matrix(SpTcov)
     
@@ -52,6 +52,8 @@
     zHist = array(NA, dim = c(N.run, nComp, nSites))
     logPostDist = matrix(NA, nrow = N.run,ncol = 1)
     logLike = matrix(NA, nrow = N.run,ncol = 1)
+    dpriorsHist = matrix(NA, nrow = N.run, ncol = 8)
+    yHatHist = matrix(NA, nrow = N.run, ncol = nObs)
     
     betaH = array(NA, dim = c(dim(betaHist), nBatch))
     gammaH = array(NA, dim = c(dim(gammaHist), nBatch))
@@ -65,7 +67,8 @@
     zH = as.simple_sparse_array(zH)
     logPostDistH= array(NA, dim = c(N.run,1, nBatch))
     logLikeH= array(NA, dim = c(N.run,1, nBatch))
-    
+    yHatH = array(NA, dim = c(dim(yHatHist), nBatch))
+    dpriorsH = array(NA, dim = c(dim(dpriorsHist), nBatch))
     
     Xtilde = simple_triplet_zero_matrix(nrow = nObs, ncol = nSites*nCov*nBasis)
     
@@ -101,7 +104,7 @@
       
       comp = apply(matrix(z0, nrow=nComp), 2 , which.max)
       
-      
+      #browser()
       betaPostMu =rep(priors$beta$m0,nSites * nBasis * nCov)
       betaPostSd = kronecker(diag(nBasis),tau0*exp(- phi0 * DistMat)* outer(comp, comp, FUN = function(x,y) as.numeric(x==y)))
       if(priors$beta$constrained){
@@ -144,7 +147,16 @@
       thetaGPHist[1,] = thetaGP0
       wll_old = -Inf
       
-      if(nSpTCov>0){MuG = Mu - SpTcov %*% gammaHist[1,]}else{MuG = Mu}
+      #if(nSpTCov>0){MuG = Mu - SpTcov %*% gammaHist[1,]}else{MuG = Mu}
+      
+      if(nComp>1){SpTcov = z0[match(y$ID, ID),]}
+      
+      if(nSpTCov>0){
+        MuA = MuB = Mu - SpTcov %*% gammaHist[1,]
+        MuG = Mu - crossprod_simple_triplet_matrix(t(Xtilde), betaHist[1,])
+      }else{
+        MuA = MuB = Mu
+      }
       
       numLog = NULL
       for(t in 2:N.run){
@@ -155,11 +167,12 @@
         
         idxC = ((si-1)*nBasis+1):(si*nBasis)
         
-        MuCorr = diag(betaHist[t-1,match(y$ID, levels(y$ID))*nBasis]^(-1)) %*% (MuG - betaHist[t-1,match(y$ID, levels(y$ID))*nBasis-1])
+        MuCorr = MuA#diag(betaHist[t-1,match(y$ID, levels(y$ID))*nBasis]^(-1)) %*% (MuA - betaHist[t-1,match(y$ID, levels(y$ID))*nBasis-1])
         
         thetaGP_Prop = c(rgamma(nParGP, unlist(priors$thetaGP)[(1:nParGP)*2-1],
                                 unlist(priors$thetaGP)[(1:nParGP)*2]),
                          sigma2Hist[t-1])
+        
         
         
         wll = 0
@@ -181,24 +194,22 @@
         
         ft = NULL
         for(j in 1:nComp){
+          
           idxZ = which(y$ID %in% ID[which(apply(zCurr,2,which.max) == j)])
           if(length(idxZ)>0){
             
             xList = list(matrix(y$date[idxZ], ncol=1),matrix(y$date[idxZ], ncol=1))
             xPred = list(matrix(y$date, ncol=1),matrix(y$date, ncol=1))
             tt = GPpred(xd = xPred, x = xList,y = c(MuCorr[idxZ]), param = param, kernel = kernelList)
-            
             ft = c(ft, list(tt$mp))
-            #idxft = c(idxft, list(y$ID[idxZ]))
           }else{
             xList = list(matrix(y$date, ncol=1),matrix(y$date, ncol=1))
             xPred = list(matrix(y$date, ncol=1),matrix(y$date, ncol=1))
             tt = GPpred(xd = xPred, x = xList,y = c(MuCorr), param = param, kernel = kernelList)
             ft = c(ft, list(tt$mp))
-            #dxft = c(idxft, list(NA))
           }
         }
-        
+        #browser()
         # Sample/Create latent temporal functionals
         
         for(si in 1:nSites){
@@ -222,7 +233,7 @@
         betaPostSd = solve(iSigmaBeta + iSigmaObs)
         ibetaPostSd = iSigmaBeta + iSigmaObs
         
-        betaPostMu = betaPostSd %*% (crossprod_simple_triplet_matrix(Xtilde, MuG) + 
+        betaPostMu = betaPostSd %*% (crossprod_simple_triplet_matrix(Xtilde, MuB) + 
                                        iSigmaBeta %*% matrix(priors$beta$m0, ncol =1, nrow = nrow(iSigmaBeta)) )
         
         if(priors$beta$constrained){
@@ -272,7 +283,7 @@
           iSigmaObsG = tWW
           
           gammaPostSd =solve(iSigmaGamma + iSigmaObsG)
-          gammaPostMu = gammaPostSd %*% (crossprod(SpTcov, (Mu - Yp)) + 
+          gammaPostMu = gammaPostSd %*% (crossprod(SpTcov, MuG) + 
                                            iSigmaGamma  %*% matrix(priors$gamma$m0, ncol =1, nrow = nrow(iSigmaGamma)))
           
           gammaHist[t,] = rmvnorm(1, gammaPostMu, gammaPostSd)
@@ -281,7 +292,7 @@
         
         # Updating sigma
         
-        if(nSpTCov>0){Ypp = Yp + SpTcov %*% gammaHist[t,]}else{Ypp = Yp}
+        if(nSpTCov>0){Ypp = Yp + SpTcov %*% gammaHist[t-1,]}else{Ypp = Yp}
         
         sigma2PostA = priors$sigma2$a0 + nObs / 2
         sigma2PostB = priors$sigma2$b0 + sum((Mu - Ypp)^2, na.rm=T) / 2
@@ -289,6 +300,10 @@
         #if(t==10){browser()}
         
         sigma2Hist[t] = rigamma(1, sigma2PostA, sigma2PostB)
+        
+        # Updating yHat
+        # 
+        yHatHist[t,] = Ypp
         
         # Updating tau
         
@@ -389,18 +404,18 @@
         
         #YpComp = crossprod_simple_triplet_matrix(t(Btilde),alphaHist[t,,])
         piCurr = matrix(piHist[t-1,,], nrow = nComp)
-        zObs = NULL
-        logProb = matrix(NA, nSites, nComp)
-        for(i in 1:nSites){
-          idxID = which(y$ID == ID[i])
-          zObsProb = NULL
-          for(j in 1:nComp){
-            YpComp = ft[[j]][idxID] * betaHist[t,i*2] + betaHist[t,i*2-1]
-            logProb[i,j] = sum(dnorm(MuG[idxID], YpComp, sigma2Hist[t], log=T), na.rm=T)* sqrt(2*pi*sigma2Hist[t]^2) + rhoHist[t] * vois[i,j]
-            zObsProb = cbind(zObsProb, (dnorm(MuG[idxID], YpComp, sigma2Hist[t], log=T)* sqrt(2*pi*sigma2Hist[t]^2) + t(log(piCurr))[i,j]))
+        if(is.null(Bds)){
+          zObs = NULL
+          logProb = matrix(NA, nSites, nComp)
+          for(i in 1:nSites){
+            idxID = which(y$ID == ID[i])
+            zObsProb = NULL
+            for(j in 1:nComp){
+              #browser()
+              YpComp = ft[[j]][idxID]# * betaHist[t,i*2] + betaHist[t,i*2-1]
+              logProb[i,j] = sum(dnorm(Mu[idxID], YpComp, sigma2Hist[t], log=T), na.rm=T)* sqrt(2*pi*sigma2Hist[t]^2) + rhoHist[t] * vois[i,j]
+            }
           }
-          zObs = rbind(zObs, rowSums(matrix(apply((zObsProb), 1, function(x) rmultinom(1,1,exp(x-max(x)))), nrow = nComp)))
-        }
         
         piCurr = matrix(piHist[t-1,,], nrow = nComp)
         
@@ -410,20 +425,47 @@
         
         fProb = matrix(apply(mlogProb ,1, function(x) exp(x)/ sum(exp(x))), ncol=nComp, byrow=T)
         
-        #z.Num = apply(fProb,1, function(x) sample(1:nComp,1,prob = x))
-        
         zHist[t,,] <- apply(fProb, 1, function(x) rmultinom(1,1,x))
-        
-        
+      }else{
+        zOLD <- zHist[t-1,,]
+        piCurr = matrix(piHist[t-1,,], nrow = nComp)
+        # Checquerboard updating
+        logProb = matrix(NA, nSites, nComp)
+        for(b in 1:length(Blocks)){
+          for(i in Blocks[[b]]){
+            idxID = which(y$ID == ID[i])
+            zObsProb = NULL
+            for(j in 1:nComp){
+              YpComp = ft[[j]][idxID] * betaHist[t,i*2] + betaHist[t,i*2-1]
+              logProb[i,j] = sum(dnorm(Mu[idxID], YpComp[idxID,j], sigma2Hist[t], log=T), na.rm=T) + rhoHist[t] * vois[i,j]
+            }
+            logProb[i,] = logProb[i,] + t(log(piCurr))[i,]
+            mlogProb = matrix(apply(logProb,1, function(x) x - max(x, na.rm=T)), ncol=nComp, byrow=T)
+            fProb = matrix(apply(mlogProb ,1, function(x) exp(x)/ sum(exp(x))), ncol=nComp, byrow=T)
+            zHist[t,,i] <- rmultinom(1,1,fProb[i,])
+            zOLD[,i] = zHist[t,,i]
+          }
+          zzO = apply(zOLD,2,which.max)
+          vois = getCanStatF(Bds, zzO, nComp)
+        }
+      }
         # Updating pi
+        
         tempAlpha=NULL
         for(i in 1:nSites){
           #browser()
-          alpha = priors$pi$alpha0[i,] + zObs[i,]#zHist[t,,i]
+          alpha = priors$pi$alpha0[i,] + zHist[t,,i]*length(which(y$ID == ID[i]))#zHist[t,,i]
           piHist[t,,i] = bayesm::rdirichlet(c(as.matrix(alpha)))
           tempAlpha = rbind(tempAlpha, alpha)
         }
         
+        if(nSpTCov>0){
+          MuA = MuB = Mu - SpTcov %*% gammaHist[t,]
+          MuG = Mu - crossprod_simple_triplet_matrix(t(Xtilde), betaHist[t,])
+        }else{
+          MuA = MuB = Mu
+          MuG = Mu - crossprod_simple_triplet_matrix(t(Xtilde), betaHist[t,])
+        }
         
         # Likelihood and priors
         
@@ -475,11 +517,18 @@
         prPi = prZ = 0
         for(i in 1:nSites){
           isZero = which(round(piHist[t,,i],5) > 0)
-          prPi = prPi + ddirichlet(matrix(round(piHist[t,isZero,i],5), ncol = length(isZero)), alpha = tempAlpha[i,isZero], log=T, sum=T)
+          prPi = prPi + 
+            sum(log(
+              mixtools::ddirichlet(matrix(round(piHist[t,isZero,i],6), ncol = length(isZero)) / sum(round(piHist[t,isZero,i],6)),
+                                   alpha = tempAlpha[i,isZero] )
+            ))
           prZ = prZ + log(fProb[i,which.max(zHist[t,,i])])
         }
         
-        logPostDist[t] = LogL + prBeta + prGamma + prSigma2 + prTau + prPhi+ prPi + prZ + prRho + prPi
+        
+        dpriorsHist[t, ] = cbind(prBeta, prGamma, prSigma2, prTau, prPhi, prZ, prRho, prPi)
+        
+        logPostDist[t] = LogL + prBeta + prGamma + prSigma2 + prTau + prPhi+ prPi + prZ + prRho
         logLike[t] = LogL
         
         if((round(t/2500) == (t/2500)) & print.res){print(t)}
@@ -496,8 +545,31 @@
       zH[,,,nb] = zHist
       logPostDistH[,,nb] = logPostDist
       logLikeH[,,nb] = logLike
+      dpriorsH[,,nb] = dpriorsHist
+      yHatH[,,nb] = yHatHist
+      
       toc(log = TRUE, quiet = TRUE)
     }
+    
+    
+    dimnames(betaH) <- list(1:N.run, 
+                            paste(rep(ID, each =  nBasis), basis$tempPeriod),
+                            1:nBatch)
+    
+    dimnames(dpriorsH) <- list(1:N.run, 
+                               c("beta", "gamma", "sigma2", "tau", "phi", "z", "rho", "pi"),
+                               1:nBatch)
+    
+    dimnames(gammaH) <- list(1:N.run, 
+                             colnames(SpTcov),
+                             1:nBatch)
+
+    
+    dimnames(piH) <- list(1:N.run, 
+                          1:nComp,
+                          ID,
+                          1:nBatch)
+    
     log.lst <- tic.log(format = FALSE)
     tic.clearlog()
     timings <- unlist(lapply(log.lst, function(x) x$toc - x$tic))
@@ -506,9 +578,9 @@
                             sigma2H = sigma2H, tauH = tauH, phiH = phiH,rhoH = rhoH,
                             piH = piH, zH = zH),
                DistM = list(DM = DistMat, DMB = DistMatBeta),
-               y = y, basis = basis, ID = ID ,coords = coords,cov = cov,sptcov = SpTcov,
+               y = y, basis = basis, ID = ID ,coords = coords,cov = cov,sptcov = SpTcov,yHat = yHatH,
                priors = priors, kernelList = kernelList,
-               execTime = timings, logPostDist = list(Post = logPostDistH, ll = logLikeH))
+               execTime = timings, logPostDist = list(Post = logPostDistH, ll = logLikeH, dPriors = dpriorsH))
     
     return(RET)
     

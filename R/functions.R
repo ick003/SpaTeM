@@ -5,7 +5,7 @@
   
   t = df.obs$date
   
-  BB = NULL
+  BB = d2BB = iBB = NULL
   idxT = NULL
   j=0
   maxIdx = 0
@@ -38,21 +38,39 @@
   }else{
     if(splinesType == "poly"){
       splineFun = function(...) bs(intercept = F, ...)
+      d2splineFun = function(...) dbs(intercept=F, derivs = 2, ...)
+      isplineFun = function(...) ibs(intercept=F, ...)
     }
     if(splinesType == "cubic"){
       splineFun = function(...) ns(intercept  =F, ...)
     }
+    
   for(i in tempPeriod){
     j = j +1 
     if(tempBasis == "bs"){
       if(j == 1){
-        tTemp = as.Date(paste("2014-",format(t,"%m-%d"), sep = ""))
+        if(tempPeriod[j] == "%m"){tTemp = as.Date(paste("2014-",format(t,"%m-%d"), sep = ""))}
+        if(tempPeriod[j] == "%H"){tTemp = t}
         BBT = splineFun(tTemp, df = nSplines[j],
                  Boundary.knots = c(min(tTemp)-diff(range(tTemp))/(1*nSplines[j]),max(tTemp)+diff(range(tTemp))/(1*nSplines[j])))
+        tTemp =as.numeric(tTemp)
+        iBBT = apply(isplineFun(tTemp, df = nSplines[j],
+                            Boundary.knots = c(min(tTemp)-diff(range(tTemp))/(1*nSplines[j]),max(tTemp)+diff(range(tTemp))/(1*nSplines[j]))),2,max)
+        #d2BBT =d2splineFun(tTemp, df = nSplines[j],
+        #                            Boundary.knots = c(min(tTemp)-diff(range(tTemp))/(1*nSplines[j]),max(tTemp)+diff(range(tTemp))/(1*nSplines[j])))
+        d2BBT = colSums(d2splineFun(sort(unique(tTemp)), df = nSplines[j],
+                            Boundary.knots = c(min(tTemp)-diff(range(tTemp))/(1*nSplines[j]),max(tTemp)+diff(range(tTemp))/(1*nSplines[j]))))*diff(range(tTemp))
       }
       if(j == 2){
         BBT = splineFun(t, df = nSplines[j], 
                  Boundary.knots = c(min(t)-diff(range(t))/(1*nSplines[j]),max(t)+diff(range(t))/(1*nSplines[j])))
+        t = as.numeric(t)
+        #d2BBT = d2splineFun(t, df = nSplines[j], 
+        #                Boundary.knots = c(min(t)-diff(range(t))/(1*nSplines[j]),max(t)+diff(range(t))/(1*nSplines[j])))
+        d2BBT = colSums(d2splineFun(sort(unique(t)), df = nSplines[j],
+                                    Boundary.knots = c(min(t)-diff(range(t))/(1*nSplines[j]),max(t)+diff(range(t))/(1*nSplines[j]))))*diff(range(t))
+        iBBT = apply(isplineFun(t, df = nSplines[j], 
+                            Boundary.knots = c(min(t)-diff(range(t))/(1*nSplines[j]),max(t)+diff(range(t))/(1*nSplines[j]))),2,max)
       }
       if(j == 3){
         BBT = matrix(rep(1, length(t)), ncol=1)
@@ -63,13 +81,15 @@
     }
     
     BB = c(BB,list(BBT))
+    d2BB = c(d2BB,list(d2BBT))
+    iBB = c(iBB,list(iBBT))
     idxt = 1:ncol(BBT) + maxIdx #(ncol(BB) - ncol(BBT))
     maxIdx = max(idxt)
     idxT = c(idxT,list(idxt))
 }
   }
   
-  sptm.data = list(obs.data = df.obs, basis = BB, list.idx = idxT, tempBasis = tempBasis, tempPeriod = tempPeriod, splinesType = splinesType)
+  sptm.data = list(obs.data = df.obs, basis = BB, d2basis = d2BB, ibasis = iBB, list.idx = idxT, tempBasis = tempBasis, tempPeriod = tempPeriod, splinesType = splinesType)
   class(sptm.data) <- 'sptm'
   return(sptm.data)
 }
@@ -78,7 +98,10 @@
   
   
   sptm.model = list(data = df.sptm$obs.data,
-                    basis = list(splines = df.sptm$basis, idx = df.sptm$list.idx, tempBasis = df.sptm$tempBasis, tempPeriod = df.sptm$tempPeriod, type = df.sptm$splinesType),
+                    basis = list(splines = df.sptm$basis, 
+                                 d2splines = df.sptm$d2basis,
+                                 isplines = df.sptm$ibasis,
+                                 idx = df.sptm$list.idx, tempBasis = df.sptm$tempBasis, tempPeriod = df.sptm$tempPeriod, type = df.sptm$splinesType),
                     lu = df.lu,
                     coord = coordinates,
                     covariates = cov,
@@ -701,12 +724,12 @@ function(SPTMresobj, idxRem=NULL){
 
 "k_longterm" <- 
   function(t,tp, param = list(q1=1,q2=1)){
-  param$q1 * exp(-(t-tp)^2 / param$q2^2)
+  param$q1 * exp(-(t-tp)^2 / param$q2)
 }
 
 "k_seasonal" <- 
   function(t,tp,param = list(q3=1,q4=1,qs=1,f=1)){
-  param$q3 * exp( -2*sin(3.14*param$f*(t-tp))^2 / param$qs^2) * exp(-1/2*(t-tp)^2 / param$q4^2)
+  param$q3 * exp( -2*sin(3.14*param$f*(t-tp))^2 / param$qs) * exp(-1/2*(t-tp)^2 / param$q4)
   }
 
 "GPpred" <-
@@ -740,10 +763,10 @@ function(SPTMresobj, idxRem=NULL){
     }
     
   }
-  
-  
-  mu_p = Kpx %*% ginv(Kxx) %*% y
-  sigma_p = Kpp - Kpx %*% ginv(Kxx) %*% t(Kpx)
+  Kxx = Kxx + diag(x = rep(param$sigma_noise, nrow(Kxx)))
+  #browser()
+  mu_p = Kpx %*% solve(Kxx) %*% y
+  sigma_p = Kpp - Kpx %*% solve(Kxx) %*% t(Kpx)
   
   wd = list(mp = mu_p, sp = sigma_p)
   

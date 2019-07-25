@@ -227,15 +227,18 @@
               t0 = y$date
               if(basis$tempPeriod[i] == "%m"){
                 t0 = as.Date(paste("2014-",format(t0,"%m-%d"), sep = ""))
+                if(i == 1){deltaT = "day"}
+                if(i == 2){deltaT = "month"}
               }
               
-              if(i == 1){deltaT = "day"}
-              if(i == 2){deltaT = "month"}
+              if(basis$tempPeriod[i] == "%H"){t0 = t0; deltaT = 1/(diff(range(t0))*6)}
+              
+              
               xPred = seq(min(t0), max(t0), deltaT)
               xBasis = predict(basis$splines[[i]],xPred)
               
               yPred = xBasis %*% t(alphaH[keepRun,basis$idx[[i]],k,1])
-              
+              #browser()
               plot(xPred,rowMeans(yPred),
                    ylim =  quantile(yPred, c(0.01,0.99)),
                    main = basis$tempPeriod[i],lty=1, ylab="", type="l", lwd=2,col = color[i])

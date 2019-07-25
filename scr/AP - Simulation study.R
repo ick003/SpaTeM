@@ -2,6 +2,7 @@ library(LearnBayes)
 library(mvtnorm)
 library(compositions)
 library(splines)
+library(splines2)
 library(slam)
 library(Rcpp)
 library(deldir)
@@ -23,7 +24,7 @@ set.seed(102)
 genData = createSpTdata(max.date = as.Date("31-12-2011", format = "%d-%m-%Y"),
                         min.date = as.Date("01-01-2008", format = "%d-%m-%Y"),
                         parameters = list(sigma = 1*1e-2, tau = 0.1, phi = 1),
-                        nSite = 9, nLandUse = 3, byDate = "month", missingMeasures = list(status = T, ratio = 0.75, type= "MAR"))
+                        nSite = 9, nLandUse = 3, byDate = "month", missingMeasures = list(status = T, ratio = 0.25, type= "MAR"))
 genData$grTrue
 
 ggplot(data = genData$df, aes(x = date, y = obs, col = ID)) + geom_point() + 
@@ -42,8 +43,8 @@ SpTcov = cbind(CLR[match(df$obs.data$ID,rownames(genData$luComp)),],1)
 df.sptmod = SPTModel(df.sptm = df, coordinates = coordDF, SpTcov = SpTcov)
 set.seed(1)
 
-ResGibbs = estimGibbs(df.sptmod, priors = list(beta = list(m0 = 1, s0 = 2, dist = "gauss", constrained = T),
-                                               alpha = list(m0 = 0, s0 = 2, dist = "gauss", constrained = T),
+ResGibbs = estimGibbs(df.sptmod, priors = list(beta = list(m0 = 1, s0 = 2, dist = "gauss", constrained = F),
+                                               alpha = list(m0 = 0, s0 = 1, dist = "gauss", constrained = F),
                                                gamma = list(m0 = 0, s0 = 2, dist = "gauss"),
                                                sigma2 = list(a0=20, b0=8, dist = "gamma"),
                                                tau = list(a0 = 5, b0= 1, dist = "gamma"),
@@ -53,11 +54,12 @@ ResGibbs = estimGibbs(df.sptmod, priors = list(beta = list(m0 = 1, s0 = 2, dist 
                                                tauT = list(a0 = 2, b0= 1, dist = "gamma"),
                                                phiT = list(inf = 0.25, sup = 0.5, dist = "unif"),
                                                rho=list(inf=2, sup = 3, dist="unif")),
-                      N.run = 2500, debug =F,tempRE = "notcorr", print.res = T, 
+                      N.run = 1500, debug =F,tempRE = "notcorr", print.res = T, 
                       nBatch = 2, parallel = F, nCluster = 1)
 
-idxBatch = which.max(ResGibbs$GibbsOut$logPostDist$ll[2500,,])
-keepRun = 2000:2500
+Nrun = 1500
+idxBatch = which.max(ResGibbs$GibbsOut$logPostDist$ll[Nrun,,])
+keepRun = round(0.5*Nrun):Nrun
 plotSPTM(ResGibbs, "tempBasis", keepRun = keepRun)
 plotSPTM(ResGibbs, "beta")
 plotSPTM(ResGibbs, "alpha")
@@ -87,8 +89,8 @@ df.sptmod = SPTModel(df.sptm = df, coordinates = coordDF, SpTcov = NULL)
 pi0 = genData$luComp[,1:3]
 pi0 = pi0/ rowSums(pi0)#genData$grTrue#
 set.seed(1)
-ResGibbsM = estimGibbs(df.sptmod, priors = list(beta = list(m0 = 1, s0 = 2, dist = "gauss", constrained = T),
-                                                alpha = list(m0 = 0, s0 = 2, dist = "gauss", constrained = T),
+ResGibbsM = estimGibbs(df.sptmod, priors = list(beta = list(m0 = 1, s0 = 2, dist = "gauss", constrained = F),
+                                                alpha = list(m0 = 0, s0 = 2, dist = "gauss", constrained = F),
                                                 gamma = list(m0 = 0, s0 = 2, dist = "gauss"),
                                                 sigma2 = list(a0=20, b0=8, dist = "igamma"),
                                                 tau = list(a0 = 5, b0= 1, dist = "igamma"),
@@ -97,12 +99,13 @@ ResGibbsM = estimGibbs(df.sptmod, priors = list(beta = list(m0 = 1, s0 = 2, dist
                                                 phiT = list(inf = 0.1, sup = 0.8, dist = "unif"),
                                                 rho = list(inf = 0.1, sup = 0.8, dist = "unif"),
                                                 pi = list(alpha0 = pi0, dist = "dirichlet")),
-                       N.run = 2500, debug = F, tempRE = "notcorr", model = "simpleMixture",
+                       N.run = 500, debug = F, tempRE = "notcorr", model = "simpleMixture",
                        print.res = T, nBatch = 2,
                        parallel = F, nCluster = ncol(pi0))
 
-Nrun = 2500
+Nrun = 500
 idxBatchM = which.max(ResGibbsM$GibbsOut$logPostDist$ll[Nrun,,])
+Prdf = apply(ResGibbsM$GibbsOut$theta$zProbH[round(0.5*Nrun):Nrun,,,idxBatchM],c(2,3),mean)
 Cldf = data.frame(ID = 1:9,Cluster = apply(t(apply(ResGibbsM$GibbsOut$theta$zH[round(0.5*Nrun):Nrun,,,idxBatchM],c(2,3),mean)),1,which.max))
 idxKeepM = which(colSums(apply(ResGibbsM$GibbsOut$theta$zH[,,,idxBatchM], 1, function(x) apply(x, 2,which.max) - Cldf$Cluster))==0)
 idxKeepM = idxKeepM[idxKeepM > round(0.5*Nrun)]
@@ -115,20 +118,11 @@ plotSPTM(ResGibbsM, "hyperparameter", keepRun = idxKeepM)
 plotSPTM(ResGibbsM, "residuals", keepRun = idxKeepM)
 plotSPTM(ResGibbsM, "covariates", keepRun = idxKeepM)
 plotSPTM(ResGibbsM, "cluster", keepRun = idxKeepM)
-plotSPTM(ResGibbsM, "map")
-
-plot(t(matrix(colMeans(ResGibbs$GibbsOut$theta$betaH[1250:2500,,1]), nrow=2)))
-
-apply(t(apply(ResGibbsM$GibbsOut$theta$zH[1250:2500,,,2],c(2,3),mean)),1,which.max)
-apply(ResGibbsM$GibbsOut$theta$zH[5000:7500,,,2],c(2,3),mean)
-genData$grTrue
-genData$betaTrue
 
 predData = genData$df
 predData$yP =  predictSPTM(ResGibbsM, keepRun = idxKeepM)$Yp
 predData$CI025 = apply(ResGibbsM$GibbsOut$yHat[idxKeepM,,idxBatchM],2,quantile,0.025)
 predData$CI975 = apply(ResGibbsM$GibbsOut$yHat[idxKeepM,,idxBatchM],2,quantile,0.975)
-predData$yPp =   apply(ResGibbsM$GibbsOut$yHat[idxKeepM,,idxBatchM],2,quantile, 0.5)
 predData$yPp =   apply(ResGibbsM$GibbsOut$yHat[idxKeepM,,idxBatchM],2,mean)
 
 predData = merge(predData, Cldf, by  ="ID", all.x = TRUE)
@@ -182,7 +176,6 @@ plotSPTM(ResGibbsMS, "hyperparameter", keepRun = idxKeepMS)
 plotSPTM(ResGibbsMS, "residuals", keepRun = idxKeepMS)
 plotSPTM(ResGibbsMS, "covariates", keepRun =idxKeepMS)
 plotSPTM(ResGibbsMS, "cluster", keepRun = idxKeepMS)
-plotSPTM(ResGibbsMS, "map")
 
 predData = genData$df
 predData$yP =  predictSPTM(ResGibbsMS, keepRun = idxKeepMS)$Yp

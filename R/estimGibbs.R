@@ -31,7 +31,8 @@
     if(model == 'noMixture'){
       
       if(tempRE == 'notcorr'){
-        res = gibbSamplerG(priors, y, basis = basis, ID = levels(y$ID), coords = coords, cov = cov,SpTcov = SpTcov,Bds = NULL,Blocks =NULL,
+        res = gibbSamplerG_v2(priors, y, basis = basis, ID = levels(y$ID), coords = coords, cov = cov,SpTcov = SpTcov,
+                           Bds = NULL,Blocks =NULL,
                            N.run = N.run, debug, print.res = print.res, nBatch = nBatch,
                            parallel = parallel, nCluster = nCluster)
       }
@@ -49,7 +50,7 @@
     
     if(model == 'simpleMixture'){
       if(tempRE == 'notcorr'){
-        res = gibbSamplerG(priors, y, basis = basis, ID = levels(y$ID), coords = coords, cov = cov,SpTcov = SpTcov,Bds = NULL,Blocks =NULL,
+        res = gibbSamplerG_v2(priors, y, basis = basis, ID = levels(y$ID), coords = coords, cov = cov,SpTcov = SpTcov,Bds = NULL,Blocks =NULL,
                            N.run = N.run, debug, print.res = print.res, nBatch = nBatch,
                            parallel = parallel, nCluster = nCluster)
       }
@@ -76,7 +77,7 @@
       
       Bds = comPts(tile.dd)
       
-      res = gibbSamplerG(priors, y, basis = basis, ID = levels(y$ID), coords = coords, cov = cov,SpTcov = SpTcov,Bds= Bds,Blocks = Blocks,
+      res = gibbSamplerG_v2(priors, y, basis = basis, ID = levels(y$ID), coords = coords, cov = cov,SpTcov = SpTcov,Bds= Bds,Blocks = Blocks,
                          N.run = N.run, debug, print.res = print.res, nBatch = nBatch,
                          parallel = parallel, nCluster = nCluster)
       

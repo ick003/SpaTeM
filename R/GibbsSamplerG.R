@@ -21,6 +21,7 @@
       basisSplines = do.call(cbind,lapply(basis$splines, function(x) x$X))
     }else{
       basisSplines = do.call(cbind,basis$splines)
+      basis2dSplines = do.call(cbind, basis$d2splines)
     }
     
     
@@ -108,9 +109,12 @@
           if(nBasis == 3){nConst = 2}
           A = matrix(0,nrow = nConst, ncol = length(alphaPostMu))
           for(cA in 1:(nConst)){
-            A[cA,basis$idx[[cA]]] = colMeans(basisSplines)[basis$idx[[cA]]]
-            #A[2*cA,basis$idx[[cA]]] = 1#colMeans(basisSplines)[basis$idx[[cA]]]
+            #A[cA,basis$idx[[cA]]] = colMeans(basisSplines)[basis$idx[[cA]]]
+            A[cA,basis$idx[[cA]]] = unlist(basis$isplines)[basis$idx[[cA]]]
           }
+          
+         # browser()
+          
           e = matrix(c(0,0),ncol=1, nrow=(nConst))
           L = t(chol(solve(alphaPostSd)))
           zi = rmvnorm(1,rep(0, nrow(alphaPostSd)), diag(1, nrow(alphaPostSd)))
@@ -126,6 +130,7 @@
         }
         betaPostMu =rep(priors$beta$m0,nSites * (nBasis) * nCov)
         betaPostSd = kronecker(diag(nBasis),tau0*exp(- phi0 * DistMat)* outer(comp, comp, FUN = function(x,y) as.numeric(x==y)))
+       #browser()
         if(priors$beta$constrained){
           # Using Rue2005 alg.
           Ab = kronecker(t(z0), diag(nBasis))
@@ -188,8 +193,8 @@
         numLog = NULL
         for(t in 2:N.run){
           
-          #browser()
-          # print(t)
+          
+          #print(t)
           # 
           # Updating alpha_j
           
@@ -197,35 +202,49 @@
           for(j in 1:nComp){
             idxZ = which(y$ID %in% ID[which(apply(zCurr,2,which.max) == j)])
             if(length(idxZ)>0){
-              BtildeZ = Btilde[idxZ,]
-              tBB = crossprod_simple_triplet_matrix(BtildeZ)
+              #BtildeZ = Btilde[idxZ,]
+              BtildeZ = basisSplines[idxZ,]
+              #tBB = crossprod_simple_triplet_matrix(BtildeZ)
+              tBB = t(BtildeZ) %*% BtildeZ
               
               r = outer(basis$idx[[1]], basis$idx[[1]], FUN = function(X,Y){length(basis$idx[[1]])-abs(X-Y)})
               rr = outer(basis$idx[[1]], basis$idx[[1]], FUN = function(X,Y){abs(X-Y)})
-             # browser()
               DistAlpha1 = matrix(mapply(min,r,rr), ncol = length(basis$idx[[1]]))^2
-              DistAlpha2 = outer(basis$idx[[2]], basis$idx[[2]], FUN = function(X,Y){abs(X-Y)})^2
-              
+              if(nBasis==2){DistAlpha2 = outer(basis$idx[[2]], basis$idx[[2]], FUN = function(X,Y){abs(X-Y)})^2
               SigmaAlpha = rbind(cbind(exp(-DistAlpha1),matrix(0, ncol = length(basis$idx[[2]]), nrow = length(basis$idx[[1]]))), 
-                          cbind(matrix(0, ncol = length(basis$idx[[1]]), nrow = length(basis$idx[[2]])), exp(-DistAlpha2))) 
+                          cbind(matrix(0, ncol = length(basis$idx[[1]]), nrow = length(basis$idx[[2]])), exp(-DistAlpha2)))}else{
+                            SigmaAlpha =exp(-DistAlpha1)
+                          }
               #browser()
               
               #iSigmaAlpha = 1/priors$alpha$s0 * diag(ncol(alphaHist))
-              iSigmaAlpha = solve(SigmaAlpha)
+              iSigmaAlpha = solve(priors$alpha$s0 *SigmaAlpha)
               
-              #iSigmaObsB = 1/sigma2Hist[t-1]* tBB
-              iSigmaObsB = tBB
+              #browser()
               
-              alphaPostSd = solve(iSigmaAlpha + iSigmaObsB)
+              #smPar = rgamma(1, 1e-8, 1)
               
+              #print(t)
+              
+              #iSigmaAlpha = smPar*(t(basis2dSplines) %*% basis2dSplines)
+              
+              iSigmaObsB =  tBB
+              #iSigmaObsB = tBB
+              #print(t)
+              #browser()
+              alphaPostSd = sigma2Hist[t-1]*solve(iSigmaAlpha + iSigmaObsB)
+              ialphaPostSd = sigma2Hist[t-1]^-1*(iSigmaAlpha + iSigmaObsB)
               #if(t > 450){browser()}
-              alphaPostMu = alphaPostSd %*% ( crossprod_simple_triplet_matrix(BtildeZ, MuA[idxZ]) + 
-                                                iSigmaAlpha %*% matrix(priors$alpha$m0, ncol =1, nrow = nrow(iSigmaAlpha)))
-              # alphaPostMu = alphaPostSd %*% ( sigma2Hist[t-1]^(-1) * crossprod_simple_triplet_matrix(BtildeZ, MuA[idxZ]) + 
-              #                                   iSigmaAlpha %*% matrix(priors$alpha$m0, ncol =1, nrow = nrow(iSigmaAlpha)))
-              
+              #alphaPostMu = alphaPostSd %*% ( crossprod_simple_triplet_matrix(BtildeZ, MuA[idxZ]) + 
+              #                                 iSigmaAlpha %*% matrix(priors$alpha$m0, ncol =1, nrow = nrow(iSigmaAlpha)))
+              #  alphaPostMu = alphaPostSd %*% ( sigma2Hist[t-1]^(-1) * crossprod_simple_triplet_matrix(BtildeZ, MuA[idxZ]) + 
+              #                                     iSigmaAlpha %*% matrix(priors$alpha$m0, ncol =1, nrow = nrow(iSigmaAlpha)))
+               alphaPostMu = alphaPostSd %*% ( sigma2Hist[t-1]^(-1) *(t(BtildeZ) %*% MuA[idxZ]) +
+                                                 iSigmaAlpha %*% matrix(priors$alpha$m0, ncol =1, nrow = nrow(iSigmaAlpha)))
+
             }else{
               alphaPostSd = diag(priors$alpha$s0, nSplines)
+              ialphaPostSd = diag(priors$alpha$s0^-1, nSplines)
               alphaPostMu = matrix(priors$alpha$m0, nrow = nSplines, ncol=1)
             }
             if(priors$alpha$constrained){
@@ -236,24 +255,25 @@
               
               A = matrix(0,nrow = nConst, ncol = length(alphaPostMu))
               for(cA in 1:(nConst)){
-                A[cA,basis$idx[[cA]]] = colMeans(basisSplines)[basis$idx[[cA]]]
+                #A[cA,basis$idx[[cA]]] = colMeans(basisSplines)[basis$idx[[cA]]]
+                A[cA,basis$idx[[cA]]] = unlist(basis$isplines)[basis$idx[[cA]]]
                 #A[2*cA,basis$idx[[cA]]] = 1#colMeans(basisSplines)[basis$idx[[cA]]]
               }
               #browser()
               e = matrix(c(0,0),ncol=1, nrow=(nConst))
-              L = t(chol(solve(alphaPostSd)))
+              L = t(chol(ialphaPostSd))
               zi = rmvnorm(1,rep(0, nrow(alphaPostSd)), diag(1, nrow(alphaPostSd)))
               v = solve(t(L),t(zi))
               xi = alphaPostMu + v
-              Vnk = solve(alphaPostSd) %*% t(A)
+              Vnk = ialphaPostSd %*% t(A)
               Wkk = A %*% Vnk
               Ukn = solve(Wkk) %*% t(Vnk)
               ci = A %*% xi - e
               alphaHist[t,,j] = xi - t(Ukn) %*% ci
               
               
-              muAlphaC = alphaPostMu - solve(alphaPostSd) %*% t(A) %*% solve(A %*% solve(alphaPostSd) %*% t(A)) %*% (A %*% alphaPostMu - e)
-              sigAlphaC = solve(alphaPostSd) - solve(alphaPostSd) %*% t(A) %*% solve(A %*% solve(alphaPostSd) %*% t(A)) %*% A %*% solve(alphaPostSd)
+              muAlphaC = alphaPostMu - ialphaPostSd %*% t(A) %*% solve(A %*% ialphaPostSd %*% t(A)) %*% (A %*% alphaPostMu - e)
+              sigAlphaC = ialphaPostSd - ialphaPostSd %*% t(A) %*% solve(A %*% ialphaPostSd %*% t(A)) %*% A %*% ialphaPostSd
               #if(t > 250){browser()}
               #EVD_alpha = eigen(sigAlphaC)
               #iEV_alpha = 1 / EVD_alpha$values
@@ -289,16 +309,16 @@
           SigmaBeta = kronecker(diag(nBasis),tauHist[t-1]*exp(- phiHist[t-1] * DistMat)* outer(comp, comp, FUN = function(x,y) as.numeric(x==y)))
           iSigmaBeta = kronecker(diag(nBasis),1/tauHist[t-1]*solve(exp(- phiHist[t-1] * DistMat)* outer(comp, comp, FUN = function(x,y) as.numeric(x==y))))
           
-          #iSigmaObs = 1/sigma2Hist[t-1]* tXX
           iSigmaObs = tXX
+          #iSigmaObs = tXX
           
-          betaPostSd = solve(iSigmaBeta + iSigmaObs)
-          ibetaPostSd = iSigmaBeta + iSigmaObs
+          betaPostSd = sigma2Hist[t-1]*solve(iSigmaBeta + iSigmaObs)
+          ibetaPostSd = (iSigmaBeta + iSigmaObs)
           
-          #betaPostMu = betaPostSd %*% (sigma2Hist[t-1]^(-1) * crossprod_simple_triplet_matrix(Xtilde, MuG) + 
-          #                               iSigmaBeta %*% matrix(priors$beta$m0, ncol =1, nrow = nrow(iSigmaBeta)) )
-          betaPostMu = betaPostSd %*% (crossprod_simple_triplet_matrix(Xtilde, MuB) + 
+          betaPostMu = betaPostSd %*% (sigma2Hist[t-1]^(-1) * crossprod_simple_triplet_matrix(Xtilde, MuB) + 
                                          iSigmaBeta %*% matrix(priors$beta$m0, ncol =1, nrow = nrow(iSigmaBeta)) )
+          #betaPostMu = betaPostSd %*% (crossprod_simple_triplet_matrix(Xtilde, MuB) + 
+          #                               iSigmaBeta %*% matrix(priors$beta$m0, ncol =1, nrow = nrow(iSigmaBeta)) )
           
           if(priors$beta$constrained){
             
@@ -347,7 +367,7 @@
           Btilde = basisSplines * betaTilde
           
           #browser()
-          
+          if(t==2){browser()}
           if(nSpTCov>0){
             
             if(nComp>1){SpTcov = t(zCurr[,match(y$ID, ID)])}
@@ -355,18 +375,18 @@
             tWW = crossprod(SpTcov, SpTcov)
             iSigmaGamma = 1/priors$gamma$s0 * diag(ncol(gammaHist))
             
-            #iSigmaObsG = 1/sigma2Hist[t-1]* tWW
             iSigmaObsG = tWW
+            #iSigmaObsG = tWW
             
-            gammaPostSd =solve(iSigmaGamma + iSigmaObsG)
-            gammaPostMu = gammaPostSd %*% (crossprod(SpTcov, (MuG - Yp)) + 
+            gammaPostSd = sigma2Hist[t-1]* solve(iSigmaGamma + iSigmaObsG)
+            gammaPostMu = gammaPostSd %*% (sigma2Hist[t-1]^-1*crossprod(SpTcov, (MuG - Yp)) + 
                                              iSigmaGamma  %*% matrix(priors$gamma$m0, ncol =1, nrow = nrow(iSigmaGamma)))
             
             gammaHist[t,] = rmvnorm(1, gammaPostMu, gammaPostSd)
             
           }
           
-          Yp = Yp + SpTcov %*% gammaHist[t,]
+          Yp = Yp + SpTcov %*% gammaHist[t-1,]
           
           # Site random effect
           
@@ -377,28 +397,13 @@
           
           iSigmaObsI = tII
           
-          betaIPostSd =solve(iSigmaBetaI + iSigmaObsI)
+          betaIPostSd = sigma2Hist[t-1]*solve(iSigmaBetaI + iSigmaObsI)
           ibetaIPostSd = iSigmaBetaI + iSigmaObsI
           
-          betaIPostMu = betaIPostSd %*% (crossprod(Iter, (Mu - Yp)) + 
+          betaIPostMu = betaIPostSd %*% (sigma2Hist[t-1]^-1*crossprod(Iter, (Mu - Yp)) + 
                                            iSigmaBetaI  %*% matrix(rep(0, nSites), ncol =1, nrow = nrow(iSigmaBetaI)))
           
-          # Ab = kronecker(zCurr, diag(1))
-          # idxNC = which(rowSums(Ab)==0)
-          # if(length(idxNC)>0){
-          #   Ab = matrix(Ab[-idxNC,], ncol = nSites)
-          # }
-          # eb = matrix(0,ncol=1, nrow=nrow(Ab))
-          # L = t(chol(ibetaIPostSd))
-          # zi = rmvnorm(1,rep(0, nrow(betaIPostSd)), diag(1, nrow(betaIPostSd)))
-          # v = solve(t(L),t(zi))
-          # xi = betaIPostMu + v
-          # Vnk = (betaIPostSd) %*% t(Ab)
-          # Wkk = Ab %*% Vnk
-          # Ukn = solve(Wkk) %*% t(Vnk)
-          # ci = Ab %*% xi - eb
-          # betaIHist[t,] = xi - t(Ukn) %*% ci
-          
+
           betaIHist[t,] = rmvnorm(1, betaIPostMu, betaIPostSd)
           
           # Updating sigma
@@ -533,12 +538,12 @@
           #browser()
           
           if(nSpTCov == nComp){
-            YpComp = YpComp + matrix(gammaHist[t,], ncol = nSpTCov, nrow = nrow(YpComp), byrow = T)
+            YpComp = YpComp + matrix(gammaHist[t-1,], ncol = nSpTCov, nrow = nrow(YpComp), byrow = T)
           }else{
-            YpComp = YpComp + SpTcov %*% gammaHist[t,]
+            YpComp = YpComp + SpTcov %*% gammaHist[t-1,]
           }
           
-          YpComp = YpComp #+ matrix(Iter %*% betaIHist[t,], ncol = nComp, nrow = nrow(YpComp), byrow = F)
+          #YpComp = YpComp #+ matrix(Iter %*% betaIHist[t,], ncol = nComp, nrow = nrow(YpComp), byrow = F)
           
           piCurr = matrix(piHist[t-1,,], nrow = nComp)
           
@@ -650,13 +655,13 @@
           betaPostSd = diag(rep(priors$beta$s0, length(betaPostMu)))
           if(priors$beta$constrained){
             # Using Rue2005
-            Ab = kronecker(zCurr, diag(2))
+            Ab = kronecker(zCurr, diag(nBasis))
             idxNC = which(rowSums(Ab)==0)
             if(length(idxNC)>0){
               Ab = matrix(Ab[-idxNC,], ncol = nSites*nBasis)
             }
             eb = matrix(rowSums(Ab),ncol=1, nrow=nrow(Ab))
-            
+            #browser()
             # New cond dist parameters 
             muBetaC = betaPostMu - solve(betaPostSd) %*% t(Ab) %*% solve(Ab %*% solve(betaPostSd) %*% t(Ab)) %*% (Ab %*% betaPostMu - eb)
             sigBetaC = solve(betaPostSd) - solve(betaPostSd) %*% t(Ab) %*% solve(Ab %*% solve(betaPostSd) %*% t(Ab)) %*% Ab %*% solve(betaPostSd)

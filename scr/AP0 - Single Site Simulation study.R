@@ -2,6 +2,7 @@ library(LearnBayes)
 library(mvtnorm)
 library(compositions)
 library(splines)
+library(splines2)
 library(slam)
 library(Rcpp)
 library(deldir)
@@ -11,6 +12,7 @@ library(mixtools)
 library(ggplot2)
 library(mgcv)
 library(RColorBrewer)
+
 
 source("./R/functions.R")
 files.sources = list.files("R/")
@@ -22,13 +24,13 @@ sourceCpp("./src/cpp_functions.cpp")
 set.seed(101)
 genData = createSpTdata(max.date = as.Date("31-12-2011", format = "%d-%m-%Y"),
                         min.date = as.Date("01-01-2008", format = "%d-%m-%Y"),
-                        parameters = list(sigma = 1*1e-2, tau = 0.1, phi = 1),
-                        nSite = 1, nLandUse = 1, byDate = "week", missingMeasures = list(status = T, ratio = 0.5, type= "MAR"))
+                        parameters = list(sigma = 1*1e-1, tau = 0.1, phi = 1),
+                        nSite = 1, nLandUse = 1, byDate = "week", missingMeasures = list(status = T, ratio = 0.25, type= "MAR"))
 
 ggplot(data = genData$df, aes(x = date, y = obs, col = ID)) + geom_point() + 
   geom_segment(aes(x = date, xend = date, y = min(obs), yend = obs), size=0.2) + facet_wrap(~ID)
 
-df = SPTMData(df.obs =genData$df, tempBasis = "bs", tempPeriod = c("%m","%Y"), nSplines = c(11,5),  splinesType = "poly")
+df = SPTMData(df.obs =genData$df, tempBasis = "bs", tempPeriod = c("%m","%Y"), nSplines = c(12,5),  splinesType = "poly")
 
 
 coordDF = genData$X[,1:3]
@@ -40,10 +42,10 @@ SpTcov = NULL
 df.sptmod = SPTModel(df.sptm = df, coordinates = coordDF, SpTcov = SpTcov)
 set.seed(1)
 
-ResGibbs = estimGibbs(df.sptmod, priors = list(beta = list(m0 = 1, s0 = 0.2, dist = "gauss", constrained = T),
-                                               alpha = list(m0 = 0, s0 = 5, dist = "gauss", constrained = T),
-                                               gamma = list(m0 = 0, s0 = 0.2, dist = "gauss"),
-                                               sigma2 = list(a0=0.8, b0=2, dist = "gamma"),
+ResGibbs = estimGibbs(df.sptmod, priors = list(beta = list(m0 = 1, s0 = 2, dist = "gauss", constrained = F),
+                                               alpha = list(m0 = 0, s0 = 1, dist = "gauss", constrained = F),
+                                               gamma = list(m0 = 0, s0 = 2, dist = "gauss"),
+                                               sigma2 = list(a0=1, b0=1e-3, dist = "gamma"),
                                                tau = list(a0 = 5, b0= 1, dist = "gamma"),
                                                phi = list(inf = 0.1, sup = 50, dist = "unif"),
                                                pi = list(alpha0= matrix(1, nrow=nlevels(df$obs.data$ID), ncol=1), #
@@ -51,7 +53,7 @@ ResGibbs = estimGibbs(df.sptmod, priors = list(beta = list(m0 = 1, s0 = 0.2, dis
                                                tauT = list(a0 = 2, b0= 1, dist = "gamma"),
                                                phiT = list(inf = 0.25, sup = 0.5, dist = "unif"),
                                                rho=list(inf=2, sup = 3, dist="unif")),
-                      N.run = 1500, debug =F,tempRE = "notcorr", print.res = T, 
+                      N.run =1500, debug =F,tempRE = "notcorr", print.res = T, 
                       nBatch = 2, parallel = F, nCluster = 1)
 
 keepRun = 800:1500
@@ -76,13 +78,12 @@ ggplot(data = predData, aes(x = date, y = obs, col = ID)) + geom_point() + geom_
   facet_wrap(~ID) + 
   geom_ribbon(aes(ymin = CI025, ymax = CI975), fill = "grey70", col = "grey70", alpha = 0.2)
 
-
 sum((predData$obs - predData$yP)^2)
 
 colSums(apply(ResGibbs$GibbsOut$yHat[keepRun,,1],1, function(x) (x - ResGibbs$GibbsOut$y$obs)^2))
 
-hist(rigamma(10000, nrow(predData)/2 + 0.8,mean((predData$obs - predData$yP)^2)/2 + 2 ), freq=F, xlim = c(0,0.15))
-hist(ResGibbs$GibbsOut$theta$sigma2H[keepRun,,1], add=T, col = "red", freq = F, breaks = seq(0,5,0.005))
+hist(rigamma(1000, nrow(predData)/2 + 1,sum((predData$obs - predData$yP)^2)/2 + 1e-3 ), freq=F, xlim = c(0,0.02))
+hist(ResGibbs$GibbsOut$theta$sigma2H[keepRun,,1], add=T, col = "red", freq = F, breaks = seq(0,5,0.001))
 
 basisSplines = do.call(cbind,ResGibbs$GibbsOut$basis$splines)
 basis = ResGibbs$GibbsOut$basis
