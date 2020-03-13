@@ -5,11 +5,29 @@ Authors@R: person("Adrien", "Ickowicz", email = "adrien.ickowicz@csiro.au", role
 Description: This package provide the necessary functions to model a mixture
     distribution with spatio-temporal observations.
 Depends:
-    R (>= 3.2.3), mvtnorm, MASS, pscl, zoo, rgdal, SpatioTemporal, deldir, compositions, ggplot2, knitr, splines, raster, rgeos, maptools, plyr, RColorBrewer, corpcor, RcppArmadillo, RcppEigen
+    R (>= 3.2.3), 
+    mvtnorm, 
+    MASS, 
+    pscl, 
+    zoo, 
+    rgdal, 
+    deldir, 
+    compositions, 
+    ggplot2, 
+    knitr, 
+    splines, 
+    raster, 
+    rgeos, 
+    maptools, 
+    plyr, 
+    RColorBrewer, 
+    corpcor, 
+    RcppArmadillo, 
+    RcppEigen
 License: GPL-2
 LazyData: true
 VignetteBuilder: knitr
-RoxygenNote: 6.0.1
+RoxygenNote: 7.0.2
 LinkingTo: Rcpp
 Imports: Rcpp
 URL: http://github.com/ick003/SpaTeM

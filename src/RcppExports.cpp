@@ -7,7 +7,7 @@ using namespace Rcpp;
 
 // row_erase
 NumericMatrix row_erase(NumericMatrix x, IntegerVector rowID);
-RcppExport SEXP SpTMixture_row_erase(SEXP xSEXP, SEXP rowIDSEXP) {
+RcppExport SEXP _SpaTeM_row_erase(SEXP xSEXP, SEXP rowIDSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -19,7 +19,7 @@ END_RCPP
 }
 // getBonds
 NumericMatrix getBonds(NumericMatrix Location, double NN, double th);
-RcppExport SEXP SpTMixture_getBonds(SEXP LocationSEXP, SEXP NNSEXP, SEXP thSEXP) {
+RcppExport SEXP _SpaTeM_getBonds(SEXP LocationSEXP, SEXP NNSEXP, SEXP thSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -32,7 +32,7 @@ END_RCPP
 }
 // selectBonds
 NumericMatrix selectBonds(NumericMatrix Bds, NumericVector Cols, NumericVector Betas);
-RcppExport SEXP SpTMixture_selectBonds(SEXP BdsSEXP, SEXP ColsSEXP, SEXP BetasSEXP) {
+RcppExport SEXP _SpaTeM_selectBonds(SEXP BdsSEXP, SEXP ColsSEXP, SEXP BetasSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -45,7 +45,7 @@ END_RCPP
 }
 // setComp
 NumericVector setComp(NumericMatrix Bds, double nvert);
-RcppExport SEXP SpTMixture_setComp(SEXP BdsSEXP, SEXP nvertSEXP) {
+RcppExport SEXP _SpaTeM_setComp(SEXP BdsSEXP, SEXP nvertSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -57,7 +57,7 @@ END_RCPP
 }
 // getCompStat
 NumericMatrix getCompStat(NumericVector Comp, NumericVector CompID, NumericVector Cols);
-RcppExport SEXP SpTMixture_getCompStat(SEXP CompSEXP, SEXP CompIDSEXP, SEXP ColsSEXP) {
+RcppExport SEXP _SpaTeM_getCompStat(SEXP CompSEXP, SEXP CompIDSEXP, SEXP ColsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -70,7 +70,7 @@ END_RCPP
 }
 // flipComp
 NumericVector flipComp(NumericVector CompID, NumericVector CompIDList, double ncolor);
-RcppExport SEXP SpTMixture_flipComp(SEXP CompIDSEXP, SEXP CompIDListSEXP, SEXP ncolorSEXP) {
+RcppExport SEXP _SpaTeM_flipComp(SEXP CompIDSEXP, SEXP CompIDListSEXP, SEXP ncolorSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -83,7 +83,7 @@ END_RCPP
 }
 // getCanStatF
 NumericMatrix getCanStatF(NumericMatrix Bds, NumericVector Cols, double ncolors);
-RcppExport SEXP SpTMixture_getCanStatF(SEXP BdsSEXP, SEXP ColsSEXP, SEXP ncolorsSEXP) {
+RcppExport SEXP _SpaTeM_getCanStatF(SEXP BdsSEXP, SEXP ColsSEXP, SEXP ncolorsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -96,7 +96,7 @@ END_RCPP
 }
 // getCanStat
 NumericVector getCanStat(NumericMatrix Bds, NumericVector Cols, double ncolors);
-RcppExport SEXP SpTMixture_getCanStat(SEXP BdsSEXP, SEXP ColsSEXP, SEXP ncolorsSEXP) {
+RcppExport SEXP _SpaTeM_getCanStat(SEXP BdsSEXP, SEXP ColsSEXP, SEXP ncolorsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -109,7 +109,7 @@ END_RCPP
 }
 // loopSW
 NumericVector loopSW(NumericMatrix Bds, NumericVector Cols, double ncolors, int Nrun, NumericVector Betas);
-RcppExport SEXP SpTMixture_loopSW(SEXP BdsSEXP, SEXP ColsSEXP, SEXP ncolorsSEXP, SEXP NrunSEXP, SEXP BetasSEXP) {
+RcppExport SEXP _SpaTeM_loopSW(SEXP BdsSEXP, SEXP ColsSEXP, SEXP ncolorsSEXP, SEXP NrunSEXP, SEXP BetasSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -122,21 +122,58 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// RcppGibbs
+NumericMatrix RcppGibbs(int n, int thn);
+RcppExport SEXP _SpaTeM_RcppGibbs(SEXP nSEXP, SEXP thnSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< int >::type n(nSEXP);
+    Rcpp::traits::input_parameter< int >::type thn(thnSEXP);
+    rcpp_result_gen = Rcpp::wrap(RcppGibbs(n, thn));
+    return rcpp_result_gen;
+END_RCPP
+}
+// RcppLoopGibbs
+NumericMatrix RcppLoopGibbs(int n, int thn, NumericMatrix alphaH, NumericMatrix betaH, NumericVector gammaH, NumericVector sigma2H, NumericVector tauH, NumericVector rhoH, NumericVector phiH, NumericMatrix piH, NumericMatrix zH, NumericMatrix Xspt, NumericMatrix Xbasis);
+RcppExport SEXP _SpaTeM_RcppLoopGibbs(SEXP nSEXP, SEXP thnSEXP, SEXP alphaHSEXP, SEXP betaHSEXP, SEXP gammaHSEXP, SEXP sigma2HSEXP, SEXP tauHSEXP, SEXP rhoHSEXP, SEXP phiHSEXP, SEXP piHSEXP, SEXP zHSEXP, SEXP XsptSEXP, SEXP XbasisSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< int >::type n(nSEXP);
+    Rcpp::traits::input_parameter< int >::type thn(thnSEXP);
+    Rcpp::traits::input_parameter< NumericMatrix >::type alphaH(alphaHSEXP);
+    Rcpp::traits::input_parameter< NumericMatrix >::type betaH(betaHSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type gammaH(gammaHSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type sigma2H(sigma2HSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type tauH(tauHSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type rhoH(rhoHSEXP);
+    Rcpp::traits::input_parameter< NumericVector >::type phiH(phiHSEXP);
+    Rcpp::traits::input_parameter< NumericMatrix >::type piH(piHSEXP);
+    Rcpp::traits::input_parameter< NumericMatrix >::type zH(zHSEXP);
+    Rcpp::traits::input_parameter< NumericMatrix >::type Xspt(XsptSEXP);
+    Rcpp::traits::input_parameter< NumericMatrix >::type Xbasis(XbasisSEXP);
+    rcpp_result_gen = Rcpp::wrap(RcppLoopGibbs(n, thn, alphaH, betaH, gammaH, sigma2H, tauH, rhoH, phiH, piH, zH, Xspt, Xbasis));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
-    {"SpTMixture_row_erase", (DL_FUNC) &SpTMixture_row_erase, 2},
-    {"SpTMixture_getBonds", (DL_FUNC) &SpTMixture_getBonds, 3},
-    {"SpTMixture_selectBonds", (DL_FUNC) &SpTMixture_selectBonds, 3},
-    {"SpTMixture_setComp", (DL_FUNC) &SpTMixture_setComp, 2},
-    {"SpTMixture_getCompStat", (DL_FUNC) &SpTMixture_getCompStat, 3},
-    {"SpTMixture_flipComp", (DL_FUNC) &SpTMixture_flipComp, 3},
-    {"SpTMixture_getCanStatF", (DL_FUNC) &SpTMixture_getCanStatF, 3},
-    {"SpTMixture_getCanStat", (DL_FUNC) &SpTMixture_getCanStat, 3},
-    {"SpTMixture_loopSW", (DL_FUNC) &SpTMixture_loopSW, 5},
+    {"_SpaTeM_row_erase", (DL_FUNC) &_SpaTeM_row_erase, 2},
+    {"_SpaTeM_getBonds", (DL_FUNC) &_SpaTeM_getBonds, 3},
+    {"_SpaTeM_selectBonds", (DL_FUNC) &_SpaTeM_selectBonds, 3},
+    {"_SpaTeM_setComp", (DL_FUNC) &_SpaTeM_setComp, 2},
+    {"_SpaTeM_getCompStat", (DL_FUNC) &_SpaTeM_getCompStat, 3},
+    {"_SpaTeM_flipComp", (DL_FUNC) &_SpaTeM_flipComp, 3},
+    {"_SpaTeM_getCanStatF", (DL_FUNC) &_SpaTeM_getCanStatF, 3},
+    {"_SpaTeM_getCanStat", (DL_FUNC) &_SpaTeM_getCanStat, 3},
+    {"_SpaTeM_loopSW", (DL_FUNC) &_SpaTeM_loopSW, 5},
+    {"_SpaTeM_RcppGibbs", (DL_FUNC) &_SpaTeM_RcppGibbs, 2},
+    {"_SpaTeM_RcppLoopGibbs", (DL_FUNC) &_SpaTeM_RcppLoopGibbs, 13},
     {NULL, NULL, 0}
 };
 
-RcppExport void R_init_SpTMixture(DllInfo *dll) {
+RcppExport void R_init_SpaTeM(DllInfo *dll) {
     R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
     R_useDynamicSymbols(dll, FALSE);
 }
